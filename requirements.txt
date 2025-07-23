@@ -1,0 +1,10 @@
+Flask
+Flask-Cors
+requests
+python-dotenv
+firebase-admin
+gunicorn
+Authlib # Para OAuth com Google
+Flask-SQLAlchemy # Para o banco de dados de usuários
+SQLAlchemy
+psycopg2-binary # Necessário para hospedar em Heroku/Render com Postgres
