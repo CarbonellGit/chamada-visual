@@ -43,24 +43,10 @@
         const micBtn = document.getElementById('mic-btn');
         const searchResultsContainer = document.getElementById('search-results');
         const clearAllBtn = document.getElementById('clear-all-btn');
-        
         const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
 
-        const loadStudentPhoto = async (studentId) => {
-            try {
-                const response = await fetch(`/api/aluno/${studentId}/foto`);
-                if (!response.ok) return;
+        // --- INÍCIO DA ALTERAÇÃO ---
 
-                const data = await response.json();
-                const imgElement = document.getElementById(`foto-${studentId}`);
-                if (imgElement && data.fotoUrl) {
-                    imgElement.src = data.fotoUrl;
-                }
-            } catch (error) {
-                console.error(`Erro ao carregar foto do aluno ${studentId}:`, error);
-            }
-        };
-        
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
             if (students.length === 0) {
@@ -70,8 +56,11 @@
             students.forEach(student => {
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'student-result-item';
+                // A foto (student.fotoUrl) agora vem diretamente da API. Se não vier, usamos o avatar padrão.
+                const photoSrc = student.fotoUrl ? student.fotoUrl : defaultAvatar;
+                
                 studentDiv.innerHTML = `
-                    <img src="${defaultAvatar}" alt="Foto de ${student.nomeCompleto}" class="student-photo-small" id="foto-${student.id}">
+                    <img src="${photoSrc}" alt="Foto de ${student.nomeCompleto}" class="student-photo-small">
                     <div class="student-info">
                         <span class="student-name">${student.nomeCompleto}</span>
                         <span class="student-class">${student.turma}</span>
@@ -80,13 +69,12 @@
                 `;
                 
                 studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
-                    const currentPhotoSrc = document.getElementById(`foto-${student.id}`).src;
-                    const studentDataForCall = { ...student, fotoUrl: currentPhotoSrc };
+                    // Adiciona a foto correta aos dados que serão enviados para o Firebase
+                    const studentDataForCall = { ...student, fotoUrl: photoSrc };
                     callStudent(studentDataForCall, event.target);
                 });
 
                 searchResultsContainer.appendChild(studentDiv);
-                loadStudentPhoto(student.id);
             });
         };
 
@@ -98,23 +86,23 @@
             }
             searchResultsContainer.innerHTML = '<p style="text-align: center;">Buscando...</p>';
             try {
+                // A resposta agora contém nomes E fotos, tudo de uma vez.
                 const response = await fetch(`/api/buscar-aluno?parteNome=${cleanedSearchTerm}`);
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.erro || 'Erro no servidor');
-                }
                 const students = await response.json();
-                displayResults(students);
+                displayResults(students); 
             } catch (error) {
                 console.error('Erro ao buscar alunos:', error);
-                searchResultsContainer.innerHTML = `<p style="text-align: center;">${error.message}</p>`;
+                searchResultsContainer.innerHTML = '<p style="text-align: center;">Erro ao conectar com o servidor.</p>';
             }
         };
+
+        // A função loadStudentPhoto não é mais necessária e foi removida.
+
+        // --- FIM DA ALTERAÇÃO ---
 
         const callStudent = async (studentData, buttonElement) => {
             buttonElement.textContent = "Chamando...";
             buttonElement.disabled = true;
-            buttonElement.style.backgroundColor = '#f0ad4e';
             try {
                 const dataToSend = { ...studentData, timestamp: serverTimestamp() };
                 await addDoc(collection(db, "chamados"), dataToSend);
@@ -124,11 +112,6 @@
                 console.error("Erro ao chamar aluno via Firestore: ", error);
                 buttonElement.textContent = "Erro!";
                 buttonElement.style.backgroundColor = '#d9534f';
-                setTimeout(() => {
-                    buttonElement.textContent = "Chamar";
-                    buttonElement.disabled = false;
-                    buttonElement.style.backgroundColor = '#f7b53b';
-                }, 2000);
             }
         };
 
