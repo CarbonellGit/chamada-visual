@@ -1,4 +1,4 @@
-# app.py - Versão Final para Deploy no Render
+# app.py - Versão com Otimização de Carregamento de Fotos
 
 import os
 import requests
@@ -13,6 +13,7 @@ from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from authlib.integrations.flask_client import OAuth
 from functools import wraps
+import concurrent.futures # Importa a biblioteca para paralelismo
 
 # --- 1. CONFIGURAÇÕES E INICIALIZAÇÕES ---
 load_dotenv()
@@ -24,7 +25,7 @@ app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID')
 app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET')
 app.config['GOOGLE_DISCOVERY_URL'] = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Configuração do Banco de Dados para Produção (Render) e Desenvolvimento (Local)
+# Configuração do Banco de Dados
 database_url = os.getenv('DATABASE_URL')
 if database_url and database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
@@ -40,7 +41,7 @@ SOPHIA_PASSWORD = os.getenv('SOPHIA_PASSWORD')
 SOPHIA_API_HOSTNAME = os.getenv('SOPHIA_API_HOSTNAME')
 API_BASE_URL = f"https://{SOPHIA_API_HOSTNAME}/SophiAWebApi/{SOPHIA_TENANT}" if SOPHIA_API_HOSTNAME and SOPHIA_TENANT else None
 
-# Inicialização do OAuth para Login com Google
+# Inicialização do OAuth
 oauth = OAuth(app)
 oauth.register(
     name='google',
@@ -56,8 +57,6 @@ class Usuario(db.Model):
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     nome: Mapped[str] = mapped_column(String, nullable=False)
 
-# Cria as tabelas do banco de dados na inicialização, se elas não existirem.
-# Isso é crucial para o primeiro deploy no Render.
 with app.app_context():
     db.create_all()
 
@@ -77,7 +76,6 @@ def get_sophia_token():
     global api_token, token_expires_at
     if api_token and time.time() < token_expires_at:
         return api_token
-    
     auth_url = f"{API_BASE_URL}/api/v1/Autenticacao"
     auth_data = {"usuario": SOPHIA_USER, "senha": SOPHIA_PASSWORD}
     try:
@@ -91,6 +89,78 @@ def get_sophia_token():
         print(f"Erro ao obter token da API Sophia: {e}")
         return None
 
+# --- INÍCIO DA ALTERAÇÃO ---
+
+# Função auxiliar para buscar uma única foto. Será executada em paralelo.
+def fetch_photo(aluno_id, headers):
+    try:
+        photo_url = f"{API_BASE_URL}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
+        response_foto = requests.get(photo_url, headers=headers, timeout=5)
+        if response_foto.status_code == 200 and response_foto.text:
+            dados_foto = response_foto.json()
+            foto_base64 = dados_foto.get('foto')
+            if foto_base64:
+                return aluno_id, foto_base64
+    except requests.exceptions.RequestException:
+        pass
+    return aluno_id, None
+
+@app.route('/api/buscar-aluno', methods=['GET'])
+@login_obrigatorio
+def buscar_aluno():
+    token = get_sophia_token()
+    if not token:
+        return jsonify({"erro": "Não foi possível autenticar com a API Sophia."}), 500
+    
+    parte_nome = request.args.get('parteNome', '').strip()
+    if not parte_nome or len(parte_nome) < 2:
+        return jsonify([])
+
+    headers = {'token': token, 'Accept': 'application/json'}
+    params = {"Nome": parte_nome}
+    search_url = f"{API_BASE_URL}/api/v1/alunos"
+    
+    try:
+        response_alunos = requests.get(search_url, headers=headers, params=params)
+        response_alunos.raise_for_status()
+        lista_alunos = response_alunos.json()
+        
+        # Mapeia os dados básicos dos alunos
+        alunos_map = {
+            aluno.get("codigo"): {
+                "id": aluno.get("codigo"),
+                "nomeCompleto": aluno.get("nome", "Nome não encontrado"),
+                "turma": aluno.get("turmas", [{}])[0].get("descricao", "Sem turma")
+            } for aluno in lista_alunos if aluno.get("codigo")
+        }
+
+        # Busca todas as fotos em paralelo
+        fotos = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_id = {executor.submit(fetch_photo, aluno_id, headers): aluno_id for aluno_id in alunos_map.keys()}
+            for future in concurrent.futures.as_completed(future_to_id):
+                aluno_id, foto_data = future.result()
+                if foto_data:
+                    fotos[aluno_id] = foto_data
+
+        # Formata a resposta final, combinando dados do aluno com a foto
+        alunos_formatados = []
+        for aluno_id, aluno_data in alunos_map.items():
+            aluno_data['fotoUrl'] = fotos.get(aluno_id) # Pega a foto do mapa de fotos
+            alunos_formatados.append(aluno_data)
+            
+        return jsonify(alunos_formatados)
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao buscar alunos na API Sophia: {e}")
+        return jsonify({"erro": "Ocorreu um erro ao buscar os dados no sistema Sophia."}), 500
+
+# A rota /api/aluno/<id>/foto não é mais necessária e foi removida.
+
+# --- FIM DA ALTERAÇÃO ---
+
+
+# ... (O restante do seu app.py, como as rotas de login/logout, etc., continua aqui sem alterações) ...
+# (Cole o restante das suas rotas aqui para garantir que o arquivo esteja completo)
 # --- 5. ROTAS DE AUTENTICAÇÃO E NAVEGAÇÃO ---
 @app.route('/')
 def index():
@@ -139,76 +209,6 @@ def terminal():
 @app.route('/painel')
 def painel():
     return render_template('painel.html')
-
-@app.route('/api/buscar-aluno', methods=['GET'])
-@login_obrigatorio
-def buscar_aluno():
-    token = get_sophia_token()
-    if not token:
-        return jsonify({"erro": "Não foi possível autenticar com a API Sophia."}), 500
-    
-    parte_nome = request.args.get('parteNome', '').strip()
-    if not parte_nome or len(parte_nome) < 2:
-        return jsonify([])
-
-    headers = {'token': token, 'Accept': 'application/json'}
-    params = {"Nome": parte_nome}
-    search_url = f"{API_BASE_URL}/api/v1/alunos"
-    
-    try:
-        response_alunos = requests.get(search_url, headers=headers, params=params, timeout=10)
-        response_alunos.raise_for_status()
-        lista_alunos = response_alunos.json()
-        
-        alunos_formatados = []
-        for aluno in lista_alunos:
-            aluno_id = aluno.get("codigo")
-            if not aluno_id: continue
-            
-            turmas_do_aluno = aluno.get("turmas", [])
-            nome_da_turma = turmas_do_aluno[0].get("descricao") if turmas_do_aluno else "Sem turma"
-
-            alunos_formatados.append({
-                "id": aluno_id,
-                "nomeCompleto": aluno.get("nome", "Nome não encontrado"),
-                "turma": nome_da_turma
-            })
-        return jsonify(alunos_formatados)
-        
-    except requests.exceptions.Timeout:
-        return jsonify({"erro": "O sistema externo (Sophia) demorou muito para responder."}), 504
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 401:
-            global api_token
-            api_token = None
-            return jsonify({"erro": "Falha na autenticação com o sistema Sophia. Tente novamente."}), 500
-        else:
-            return jsonify({"erro": f"O sistema Sophia retornou um erro inesperado: {e.response.status_code}"}), 500
-    except requests.exceptions.RequestException as e:
-        return jsonify({"erro": "Não foi possível conectar ao sistema Sophia. Verifique a conexão."}), 500
-
-@app.route('/api/aluno/<int:aluno_id>/foto')
-@login_obrigatorio
-def buscar_foto_aluno(aluno_id):
-    token = get_sophia_token()
-    if not token:
-        return jsonify({"erro": "Sem token de autenticação"}), 500
-
-    headers = {'token': token, 'Accept': 'application/json'}
-    foto_url = f"{API_BASE_URL}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
-    
-    foto_data_uri = "URL_DA_FOTO_PADRAO_AQUI" # Usamos a URL no frontend, então este valor não é crítico
-    try:
-        response_foto = requests.get(foto_url, headers=headers, timeout=5)
-        if response_foto.status_code == 200 and response_foto.text:
-            dados_foto = response_foto.json()
-            foto_base64 = dados_foto.get('foto')
-            if foto_base64:
-                foto_data_uri = foto_base64
-    except requests.exceptions.RequestException as e:
-        print(f"Não foi possível buscar a foto para o aluno {aluno_id}: {e}")
-    
-    return jsonify({"fotoUrl": foto_data_uri})
 
 # --- 7. COMANDOS DE ADMINISTRAÇÃO ---
 @app.cli.command("init-db")
