@@ -91,9 +91,11 @@ body {
 }
 
 .container {
-    max-width: 1200px;
+    /* ALTERAÇÃO 1: Reduzimos o padding horizontal de 20px para 10px */
+    max-width: 100%; /* Permitimos que o container use a largura total */
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px; /* Reduzimos o preenchimento geral */
+    box-sizing: border-box; /* Garante que padding não adicione à largura total */
 }
 
 /* --- ESTILOS DO HEADER DO TERMINAL --- */
@@ -104,8 +106,6 @@ header {
     padding-bottom: 20px;
     border-bottom: 1px solid var(--carbonell-azul-escuro);
     color: var(--carbonell-branco);
-    flex-wrap: wrap; /* --- ADICIONADO --- */
-    gap: 20px; /* --- ADICIONADO --- */
  }
 
 .header-left {
@@ -123,7 +123,6 @@ header {
     display: flex;
     align-items: center;
     gap: 20px;
-    flex-wrap: wrap; /* --- ADICIONADO --- */
 }
 
 .user-info {
@@ -156,23 +155,8 @@ header {
 }
 
 /* --- ESTILOS DA BUSCA DO TERMINAL --- */
-.search-bar { 
-    margin: 20px 0; 
-    display: flex; 
-    gap: 10px; 
-    flex-wrap: wrap; /* --- ADICIONADO --- */
-}
-.search-bar input { 
-    flex-grow: 1; 
-    padding: 15px; 
-    font-size: 1.2em; 
-    border-radius: 8px; 
-    border: 2px solid var(--carbonell-azul-escuro); 
-    background-color: var(--carbonell-branco); 
-    color: var(--carbonell-azul-marinho); 
-    box-sizing: border-box; 
-    min-width: 200px; /* --- ADICIONADO --- */
-}
+.search-bar { margin: 20px 0; display: flex; gap: 10px; }
+.search-bar input { flex-grow: 1; padding: 15px; font-size: 1.2em; border-radius: 8px; border: 2px solid var(--carbonell-azul-escuro); background-color: var(--carbonell-branco); color: var(--carbonell-azul-marinho); box-sizing: border-box; }
 #search-results { display: flex; flex-direction: column; gap: 10px; }
 .student-result-item { display: flex; align-items: center; background-color: var(--carbonell-azul-escuro); padding: 10px; border-radius: 8px; }
 .student-photo-small { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid var(--carbonell-amarelo); }
@@ -199,8 +183,10 @@ header {
 
 #student-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    /* ALTERAÇÃO 2: Mudamos de 4 para 5 colunas */
+    grid-template-columns: repeat(5, 1fr); 
+    /* ALTERAÇÃO 3: Reduzimos o espaçamento para caber melhor */
+    gap: 15px; 
     margin-top: 20px;
 }
 
@@ -234,9 +220,10 @@ header {
     animation: fadeIn 0.5s ease-in-out;
 }
 
+/* ALTERAÇÃO 4: Aumentamos o tamanho da foto para preencher melhor o card maior */
 .student-photo-large {
-    width: 150px;
-    height: 150px;
+    width: 160px;  /* Aumentado de 150px */
+    height: 160px; /* Aumentado de 150px */
     border-radius: 50%;
     object-fit: cover;
     border: 4px solid var(--carbonell-branco);
@@ -248,15 +235,16 @@ header {
     flex-direction: column;
 }
 
+/* ALTERAÇÃO 5: Ajuste no tamanho da fonte para melhor leitura */
 .student-card-name {
-    font-size: 1.4em;
+    font-size: 1.5em; /* Aumentado de 1.4em */
     font-weight: 900;
     line-height: 1.2;
     color: var(--carbonell-branco);
 }
 
 .student-card-class {
-    font-size: 1.1em;
+    font-size: 1.2em; /* Aumentado de 1.1em */
     font-weight: 700;
     opacity: 0.8;
     color: var(--carbonell-branco);
@@ -274,88 +262,43 @@ header {
 }
 
 /* --- ESTILOS RESPONSIVOS --- */
-/* --- MODIFICADO --- */
+@media (max-width: 1200px) {
+    #student-grid {
+        grid-template-columns: repeat(4, 1fr); /* Volta para 4 colunas em telas menores */
+    }
+}
+
+@media (max-width: 992px) {
+    #student-grid {
+        grid-template-columns: repeat(3, 1fr); /* 3 colunas em tablets */
+    }
+    .student-photo-large {
+        width: 140px;
+        height: 140px;
+    }
+    .student-card-name {
+        font-size: 1.3em;
+    }
+}
+
 @media (max-width: 768px) {
     .container {
         padding: 15px;
     }
 
-    header {
-        flex-direction: column;
-        align-items: stretch; /* Garante que os filhos ocupem a largura toda */
-        gap: 15px;
+    header { flex-direction: column; gap: 15px; }
+
+    #student-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 colunas em celulares */
     }
     
-    .header-left, .header-right {
-        justify-content: center; /* Centraliza os itens no modo coluna */
-        width: 100%;
-    }
-
-    .header-left h1 {
-        font-size: 1.5em; /* Reduz a fonte do título em telas menores */
-    }
-
-    /* Regras para a barra de busca no mobile */
-    .search-bar {
-        justify-content: center;
-    }
-
-    .search-bar input {
-        width: 100%; /* Input ocupa toda a largura */
-        margin-bottom: 10px; /* Espaço entre o input e os botões */
-        text-align: center;
-    }
-
-    #search-btn, #mic-btn {
-        flex-grow: 1; /* Faz os botões dividirem o espaço igualmente */
-    }
-
-    /* Regras para os resultados da busca no mobile */
-    .student-result-item {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 10px; /* Aumenta o espaçamento para melhor visualização */
-    }
-
-    .student-photo-small {
-        margin-right: 0;
-        margin-bottom: 8px;
-    }
-
-    .btn-action {
-        width: 100%;
-        margin-top: 10px;
-        padding: 12px;
-    }
-
-    /* Adapta a grade do painel para menos colunas */
-    #student-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .student-result-item { flex-direction: column; align-items: center; text-align: center; gap: 5px; }
+    .student-photo-small { margin-right: 0; margin-bottom: 8px; }
+    .btn-action { width: 100%; margin-top: 10px; padding: 12px; }
 }
 
-/* --- ADICIONADO --- */
-/* Media Query para telas ainda menores, como celulares na vertical */
-@media (max-width: 480px) {
-    .header-left h1 {
-        font-size: 1.2em; /* Reduz ainda mais a fonte */
-    }
-
-    .user-info {
-        flex-direction: column; /* Empilha nome e botão de sair */
-        gap: 10px;
-    }
-
+@media (max-width: 576px) {
     #student-grid {
-        grid-template-columns: 1fr; /* Uma coluna por linha */
-    }
-
-    .student-card-name {
-        font-size: 1.2em;
-    }
-
-    .student-card-class {
-        font-size: 1em;
+        grid-template-columns: 1fr; /* 1 coluna em telas muito pequenas */
     }
 }
