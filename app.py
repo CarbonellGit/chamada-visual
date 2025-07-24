@@ -1,4 +1,5 @@
-# app.py - Versão com Otimização de Performance
+# app.py - Versão Final para Deploy no Render
+
 import os
 import requests
 import time
@@ -23,13 +24,11 @@ app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID')
 app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET')
 app.config['GOOGLE_DISCOVERY_URL'] = "https://accounts.google.com/.well-known/openid-configuration"
 
-# Configuração do Banco de Dados de Usuários
+# Configuração do Banco de Dados para Produção (Render) e Desenvolvimento (Local)
 database_url = os.getenv('DATABASE_URL')
 if database_url and database_url.startswith('postgres://'):
-    # Corrige um detalhe para o SQLAlchemy funcionar com o Heroku/Render
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
-# Se a DATABASE_URL existir (estamos na nuvem), use-a. Senão, use o SQLite local.
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -56,6 +55,11 @@ class Usuario(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     nome: Mapped[str] = mapped_column(String, nullable=False)
+
+# Cria as tabelas do banco de dados na inicialização, se elas não existirem.
+# Isso é crucial para o primeiro deploy no Render.
+with app.app_context():
+    db.create_all()
 
 # --- 3. DECORADOR DE AUTENTICAÇÃO ---
 def login_obrigatorio(f):
@@ -160,8 +164,6 @@ def buscar_aluno():
         for aluno in lista_alunos:
             aluno_id = aluno.get("codigo")
             if not aluno_id: continue
-
-            # --- ALTERAÇÃO: A busca de fotos foi removida daqui ---
             
             turmas_do_aluno = aluno.get("turmas", [])
             nome_da_turma = turmas_do_aluno[0].get("descricao") if turmas_do_aluno else "Sem turma"
@@ -170,7 +172,6 @@ def buscar_aluno():
                 "id": aluno_id,
                 "nomeCompleto": aluno.get("nome", "Nome não encontrado"),
                 "turma": nome_da_turma
-                # A 'fotoUrl' não é mais enviada na lista inicial
             })
         return jsonify(alunos_formatados)
         
@@ -186,11 +187,9 @@ def buscar_aluno():
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": "Não foi possível conectar ao sistema Sophia. Verifique a conexão."}), 500
 
-# --- INÍCIO DA NOVA ROTA PARA BUSCAR FOTOS ---
 @app.route('/api/aluno/<int:aluno_id>/foto')
 @login_obrigatorio
 def buscar_foto_aluno(aluno_id):
-    """ Rota dedicada para buscar a foto de um aluno específico. """
     token = get_sophia_token()
     if not token:
         return jsonify({"erro": "Sem token de autenticação"}), 500
@@ -198,7 +197,7 @@ def buscar_foto_aluno(aluno_id):
     headers = {'token': token, 'Accept': 'application/json'}
     foto_url = f"{API_BASE_URL}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
     
-    foto_data_uri = url_for('static', filename='img/avatar_padrao.png') # Valor padrão
+    foto_data_uri = "URL_DA_FOTO_PADRAO_AQUI" # Usamos a URL no frontend, então este valor não é crítico
     try:
         response_foto = requests.get(foto_url, headers=headers, timeout=5)
         if response_foto.status_code == 200 and response_foto.text:
@@ -210,7 +209,6 @@ def buscar_foto_aluno(aluno_id):
         print(f"Não foi possível buscar a foto para o aluno {aluno_id}: {e}")
     
     return jsonify({"fotoUrl": foto_data_uri})
-# --- FIM DA NOVA ROTA ---
 
 # --- 7. COMANDOS DE ADMINISTRAÇÃO ---
 @app.cli.command("init-db")
@@ -221,6 +219,4 @@ def init_db_command():
 
 # --- 8. INICIALIZAÇÃO DO SERVIDOR ---
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, port=5000)
