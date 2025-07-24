@@ -43,9 +43,8 @@
         const micBtn = document.getElementById('mic-btn');
         const searchResultsContainer = document.getElementById('search-results');
         const clearAllBtn = document.getElementById('clear-all-btn');
+        const searchBtn = document.getElementById('search-btn'); // Pega a referência do botão de busca
         const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
-
-        // --- INÍCIO DA ALTERAÇÃO ---
 
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
@@ -56,7 +55,6 @@
             students.forEach(student => {
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'student-result-item';
-                // A foto (student.fotoUrl) agora vem diretamente da API. Se não vier, usamos o avatar padrão.
                 const photoSrc = student.fotoUrl ? student.fotoUrl : defaultAvatar;
                 
                 studentDiv.innerHTML = `
@@ -69,7 +67,6 @@
                 `;
                 
                 studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
-                    // Adiciona a foto correta aos dados que serão enviados para o Firebase
                     const studentDataForCall = { ...student, fotoUrl: photoSrc };
                     callStudent(studentDataForCall, event.target);
                 });
@@ -84,21 +81,29 @@
                 searchResultsContainer.innerHTML = '<p style="text-align: center;">Digite pelo menos 2 letras para buscar.</p>';
                 return;
             }
+            
+            // --- INÍCIO DA ALTERAÇÃO ---
+            
+            // Desabilita o botão e mostra o feedback de carregamento
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Buscando...';
             searchResultsContainer.innerHTML = '<p style="text-align: center;">Buscando...</p>';
+
             try {
-                // A resposta agora contém nomes E fotos, tudo de uma vez.
                 const response = await fetch(`/api/buscar-aluno?parteNome=${cleanedSearchTerm}`);
                 const students = await response.json();
                 displayResults(students); 
             } catch (error) {
                 console.error('Erro ao buscar alunos:', error);
                 searchResultsContainer.innerHTML = '<p style="text-align: center;">Erro ao conectar com o servidor.</p>';
+            } finally {
+                // Garante que o botão volte ao normal, mesmo que ocorra um erro.
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Buscar';
             }
+            
+            // --- FIM DA ALTERAÇÃO ---
         };
-
-        // A função loadStudentPhoto não é mais necessária e foi removida.
-
-        // --- FIM DA ALTERAÇÃO ---
 
         const callStudent = async (studentData, buttonElement) => {
             buttonElement.textContent = "Chamando...";
