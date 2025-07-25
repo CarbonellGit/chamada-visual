@@ -318,6 +318,22 @@ header {
         gap: 10px;
     }
 
+    .search-bar {
+        flex-wrap: wrap; /* Permite que os itens quebrem para a próxima linha */
+    }
+
+    .search-bar input {
+        flex-basis: 100%; /* Faz o campo de busca ocupar 100% da largura da primeira linha */
+        margin-bottom: 10px; /* Cria um espaço entre o input e os botões abaixo dele */
+    }
+
+    /* Aplica a regra a ambos os botões dentro da search-bar */
+    .search-bar #search-btn,
+    .search-bar #mic-btn {
+        flex-grow: 1;  /* Faz os botões crescerem para dividir o espaço igualmente */
+        flex-basis: 0; /* Base de cálculo para o flex-grow funcionar bem */
+    }
+
     /* Ajuste da grade do painel para mobile */
     #student-grid {
         grid-template-columns: repeat(2, 1fr); /* 2 colunas */
