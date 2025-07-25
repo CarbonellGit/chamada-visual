@@ -91,11 +91,15 @@ body {
 }
 
 .container {
-    /* ALTERAÇÃO 1: Reduzimos o padding horizontal de 20px para 10px */
-    max-width: 100%; /* Permitimos que o container use a largura total */
+    max-width: 1200px; /* Largura máxima para o terminal */
     margin: 0 auto;
-    padding: 10px; /* Reduzimos o preenchimento geral */
-    box-sizing: border-box; /* Garante que padding não adicione à largura total */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Container fluido para o painel ocupar telas grandes */
+.display-container {
+    max-width: 95%; /* Ocupa 95% da largura da tela */
 }
 
 /* --- ESTILOS DO HEADER DO TERMINAL --- */
@@ -149,6 +153,7 @@ header {
     text-decoration: none;
     font-size: 0.9em;
 }
+
 .logout-button:hover {
     background-color: var(--carbonell-amarelo);
     color: var(--carbonell-azul-marinho);
@@ -183,10 +188,9 @@ header {
 
 #student-grid {
     display: grid;
-    /* ALTERAÇÃO 2: Mudamos de 4 para 5 colunas */
-    grid-template-columns: repeat(5, 1fr); 
-    /* ALTERAÇÃO 3: Reduzimos o espaçamento para caber melhor */
-    gap: 15px; 
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: minmax(280px, auto);
+    gap: 15px;
     margin-top: 20px;
 }
 
@@ -216,16 +220,16 @@ header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     animation: fadeIn 0.5s ease-in-out;
 }
 
-/* ALTERAÇÃO 4: Aumentamos o tamanho da foto para preencher melhor o card maior */
 .student-photo-large {
-    width: 160px;  /* Aumentado de 150px */
-    height: 160px; /* Aumentado de 150px */
-    border-radius: 50%;
+    width: 150px;
+    height: 150px;
+    max-width: 70%;
     object-fit: cover;
+    border-radius: 50%;
     border: 4px solid var(--carbonell-branco);
     margin-bottom: 10px;
 }
@@ -235,16 +239,15 @@ header {
     flex-direction: column;
 }
 
-/* ALTERAÇÃO 5: Ajuste no tamanho da fonte para melhor leitura */
 .student-card-name {
-    font-size: 1.5em; /* Aumentado de 1.4em */
+    font-size: clamp(1.2em, 2vw, 1.6em);
     font-weight: 900;
     line-height: 1.2;
     color: var(--carbonell-branco);
 }
 
 .student-card-class {
-    font-size: 1.2em; /* Aumentado de 1.1em */
+    font-size: clamp(1em, 1.5vw, 1.3em);
     font-weight: 700;
     opacity: 0.8;
     color: var(--carbonell-branco);
@@ -261,44 +264,89 @@ header {
     }
 }
 
+.exiting {
+    animation: card-exit 0.5s ease-in forwards;
+}
+
+@keyframes card-exit {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+}
+
 /* --- ESTILOS RESPONSIVOS --- */
+
+/* Telas de Tablet e menores */
 @media (max-width: 1200px) {
     #student-grid {
-        grid-template-columns: repeat(4, 1fr); /* Volta para 4 colunas em telas menores */
+        grid-template-columns: repeat(4, 1fr); /* Volta para 4 colunas */
     }
 }
 
+/* Telas de Tablet (orientação retrato) e menores */
 @media (max-width: 992px) {
     #student-grid {
-        grid-template-columns: repeat(3, 1fr); /* 3 colunas em tablets */
-    }
-    .student-photo-large {
-        width: 140px;
-        height: 140px;
-    }
-    .student-card-name {
-        font-size: 1.3em;
+        grid-template-columns: repeat(3, 1fr); /* 3 colunas */
     }
 }
 
+/* Telas de Celular (grandes) e menores */
 @media (max-width: 768px) {
     .container {
         padding: 15px;
     }
 
-    header { flex-direction: column; gap: 15px; }
-
-    #student-grid {
-        grid-template-columns: repeat(2, 1fr); /* 2 colunas em celulares */
+    /* Correção para o header do terminal no mobile */
+    header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
     }
-    
-    .student-result-item { flex-direction: column; align-items: center; text-align: center; gap: 5px; }
-    .student-photo-small { margin-right: 0; margin-bottom: 8px; }
-    .btn-action { width: 100%; margin-top: 10px; padding: 12px; }
+    .header-left, .header-right {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        text-align: center;
+    }
+    .user-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* Ajuste da grade do painel para mobile */
+    #student-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 colunas */
+    }
+
+    .student-result-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 5px;
+    }
+    .student-photo-small {
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+    .btn-action {
+        width: 100%;
+        margin-top: 10px;
+        padding: 12px;
+    }
 }
 
+/* Telas de Celular (pequenas) */
 @media (max-width: 576px) {
     #student-grid {
-        grid-template-columns: 1fr; /* 1 coluna em telas muito pequenas */
+        grid-template-columns: 1fr; /* Apenas 1 coluna */
+    }
+
+    .header-left h1 {
+        font-size: 1.5em; /* Reduz um pouco o título no mobile */
     }
 }
