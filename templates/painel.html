@@ -1,44 +1,196 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Chamada</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Painel de Chamada - Colégio Carbonell</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        #activation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(43, 58, 108, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            text-align: center;
+        }
+        #activation-overlay h2 {
+            font-size: 2.5rem;
+        }
+        #activation-overlay p {
+            font-size: 1.2rem;
+            margin-top: 0;
+        }
+        #activate-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--carbonell-azul-marinho);
+            background-color: var(--carbonell-amarelo);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        /* Animações de entrada e saída dos cards */
+        .student-card {
+            animation: card-enter 0.5s ease-out forwards;
+        }
+
+        @keyframes card-enter {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes card-exit {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+        }
+
+        .exiting {
+            animation: card-exit 0.5s ease-in forwards;
+        }
+
+    </style>
 </head>
-<body>
+<body class="terminal-body">
 
-    <div class="container-alunos">
-        <div class="card-aluno">
-            <div class="foto-aluno">
-                <img src="img/aluno.png" alt="Foto do Aluno">
-            </div>
-            <div class="info-aluno">
-                <h2 class="nome-aluno">Nome do Aluno</h2>
-                <p class="turma-aluno">Turma X</p>
-            </div>
-        </div>
-
-        <div class="card-aluno">
-            <div class="foto-aluno">
-                <img src="img/aluno.png" alt="Foto do Aluno">
-            </div>
-            <div class="info-aluno">
-                <h2 class="nome-aluno">Nome do Aluno</h2>
-                <p class="turma-aluno">Turma Y</p>
-            </div>
-        </div>
-
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma Z</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma A</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma B</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma C</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma D</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma E</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma F</p></div></div>
-        <div class="card-aluno"><div class="foto-aluno"><img src="img/aluno.png" alt="Foto do Aluno"></div><div class="info-aluno"><h2 class="nome-aluno">Nome do Aluno</h2><p class="turma-aluno">Turma G</p></div></div>
+    <div id="activation-overlay">
+        <h2>Painel de Chamada</h2>
+        <p>Clique no botão abaixo para iniciar o monitoramento e ativar as notificações sonoras.</p>
+        <button id="activate-btn">Ativar Painel</button>
     </div>
 
-    <script src="js/script.js"></script>
+    <div class="container display-container">
+        <main id="student-grid"></main>
+    </div>
+
+    <audio id="notification-sound" src="{{ url_for('static', filename='sound/notification.mp3') }}" preload="auto"></audio>
+
+    <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
+    <script type="module">
+        import { db } from '/static/firebase-config.js';
+        import { collection, query, orderBy, onSnapshot, getDocs, deleteDoc, doc, where, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        // ALTERAÇÃO: Ajustado para 10 para corresponder à grade 5x2
+        const MAX_DISPLAY_COUNT = 10;
+        const TIMEOUT_MINUTES = 10;
+        
+        const studentGrid = document.getElementById('student-grid');
+        const chamadosCollection = collection(db, "chamados");
+        const notificationSound = document.getElementById('notification-sound');
+        
+        const activationOverlay = document.getElementById('activation-overlay');
+        const activateBtn = document.getElementById('activate-btn');
+
+        function startMonitoring() {
+            activationOverlay.style.display = 'none';
+
+            const emptyStateHTML = `
+                <div class="empty-state">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo-empty">
+                    <h2>Aguardando chamada...</h2>
+                </div>
+            `;
+            studentGrid.innerHTML = emptyStateHTML;
+            
+            const q = query(chamadosCollection, orderBy("timestamp", "desc"));
+
+            onSnapshot(q, (querySnapshot) => {
+                
+                if (querySnapshot.size > MAX_DISPLAY_COUNT) {
+                    const oldestDocs = querySnapshot.docs.slice(MAX_DISPLAY_COUNT);
+                    oldestDocs.forEach(doc => deleteStudent(doc.id));
+                }
+
+                querySnapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        const emptyState = studentGrid.querySelector('.empty-state');
+                        if (emptyState) {
+                            studentGrid.innerHTML = '';
+                        }
+
+                        const student = change.doc.data();
+                        const studentCard = document.createElement('div');
+                        studentCard.className = 'student-card';
+                        studentCard.id = `card-${change.doc.id}`;
+                        studentCard.innerHTML = `
+                            <img src="${student.fotoUrl}" alt="Foto de ${student.nomeCompleto}" class="student-photo-large">
+                            <div class="student-card-info">
+                                <span class="student-card-name">${student.nomeCompleto}</span>
+                                <span class="student-card-class">${student.turma}</span>
+                            </div>
+                        `;
+                        studentGrid.insertBefore(studentCard, studentGrid.firstChild);
+                        
+                        notificationSound.play().catch(e => console.warn("A reprodução do som falhou.", e));
+                    }
+
+                    if (change.type === "removed") {
+                        const cardToRemove = document.getElementById(`card-${change.doc.id}`);
+                        if (cardToRemove) {
+                            cardToRemove.classList.add('exiting');
+                            cardToRemove.addEventListener('animationend', () => {
+                                cardToRemove.remove();
+                                if (studentGrid.children.length === 0) {
+                                    studentGrid.innerHTML = emptyStateHTML;
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        }
+
+        activateBtn.addEventListener('click', startMonitoring);
+
+        const deleteStudent = async (studentId) => {
+            try {
+                await deleteDoc(doc(db, "chamados", studentId));
+            } catch (error) {
+                console.error("Erro ao deletar aluno: ", error);
+            }
+        };
+
+        setInterval(async () => {
+            const now = Date.now();
+            const timeoutThreshold = new Date(now - TIMEOUT_MINUTES * 60 * 1000);
+            const firestoreTimestamp = Timestamp.fromDate(timeoutThreshold);
+            const timeoutQuery = query(chamadosCollection, where("timestamp", "<=", firestoreTimestamp));
+            
+            try {
+                const timedOutDocs = await getDocs(timeoutQuery);
+                timedOutDocs.forEach(timedOutDoc => {
+                    console.log(`Removendo ${timedOutDoc.data().nomeCompleto} por timeout.`);
+                    deleteStudent(timedOutDoc.id);
+                });
+            } catch (error) {
+                console.error("Erro ao verificar timeouts: ", error);
+            }
+        }, 30000);
+    </script>
 </body>
 </html>
