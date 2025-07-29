@@ -1,81 +1,359 @@
-/* Estilos Globais e Reset */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* Importa a fonte do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
+
+/* Define a paleta de cores do Carbonell como variáveis globais */
+:root {
+    --carbonell-azul-escuro: #2b3a6c;
+    --carbonell-azul-marinho: #1e2a4d;
+    --carbonell-amarelo: #f7b53b;
+    --carbonell-vermelho: #d82a2b;
+    --carbonell-branco: #ffffff;
+    --fundo-claro: #f8f9fa;
 }
 
+/* --- ESTILOS GERAIS E DE LOGIN --- */
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f0f2f5; /* Um fundo suave */
-    padding: 20px; /* Adiciona um respiro nas bordas da tela */
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--fundo-claro);
+    color: var(--carbonell-azul-marinho);
+    margin: 0;
 }
 
-/* --- LAYOUT PRINCIPAL COM FLEXBOX --- */
-
-.container-alunos {
-    display: flex; /* Ativa o layout Flexbox */
-    flex-wrap: wrap; /* Permite que os cards quebrem para a próxima linha */
-    justify-content: center; /* Centraliza os cards horizontalmente */
-    gap: 20px; /* Cria um espaço de 20px entre os cards (horizontal e vertical) */
-    width: 100%;
-    min-height: 100vh; /* Garante que o container ocupe no mínimo a altura da tela */
-    align-content: center; /* Alinha as linhas de cards no centro vertical da tela */
-}
-
-/* --- ESTILO DO CARD DO ALUNO --- */
-
-.card-aluno {
-    /* Definição do tamanho do card para uma grade de 5 colunas. */
-    flex-grow: 0; /* Impede o card de crescer */
-    flex-shrink: 0; /* Impede o card de encolher */
-    flex-basis: calc(20% - 20px); /* Base de 20% da largura, descontando o espaço do 'gap' */
-    
-    background-color: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    overflow: hidden; /* Garante que nada saia dos cantos arredondados */
-    display: flex; /* Usamos flex aqui também para alinhar o conteúdo interno do card */
-    flex-direction: column; /* Organiza a foto e o texto em coluna */
-    align-items: center; /* Centraliza o conteúdo do card na horizontal */
-    padding: 15px;
-    transition: transform 0.2s ease-in-out; /* Efeito suave ao passar o mouse */
-}
-
-.card-aluno:hover {
-    transform: scale(1.05); /* Aumenta um pouco o card ao passar o mouse */
-    z-index: 10;
-}
-
-/* --- ESTILOS DOS ELEMENTOS DENTRO DO CARD --- */
-
-.foto-aluno {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%; /* Deixa a foto redonda */
-    overflow: hidden;
-    border: 3px solid #007BFF; /* Borda azul para destaque */
-    margin-bottom: 15px;
-}
-
-.foto-aluno img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* Garante que a imagem preencha o espaço sem distorcer */
-}
-
-.info-aluno {
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
     text-align: center;
 }
 
-.nome-aluno {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 5px;
+.login-logo-container img {
+    max-width: 200px;
+    height: auto;
+    margin-bottom: 1rem;
 }
 
-.turma-aluno {
-    font-size: 1em;
-    color: #666;
+.login-container h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.login-container p {
+    font-size: 1.2rem;
+    color: #6c757d;
+}
+
+.google-login-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--carbonell-branco);
+    background-color: var(--carbonell-azul-escuro);
+    border: 1px solid var(--carbonell-azul-escuro);
+    border-radius: 8px;
+    transition: background-color 0.3s;
+}
+
+.google-login-button:hover {
+    background-color: var(--carbonell-azul-marinho);
+}
+
+.google-login-button img {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+}
+
+.flash-message {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+    width: 80%;
+    max-width: 500px;
+}
+
+.flash-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+/* --- ESTILOS DO CORPO DO TERMINAL E PAINEL --- */
+.terminal-body {
+    background-color: var(--carbonell-azul-marinho);
+}
+
+.container {
+    max-width: 1200px; /* Largura máxima para o terminal */
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Container fluido para o painel ocupar telas grandes */
+.display-container {
+    max-width: 95%; /* Ocupa 95% da largura da tela */
+}
+
+/* --- ESTILOS DO HEADER DO TERMINAL --- */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--carbonell-azul-escuro);
+    color: var(--carbonell-branco);
+ }
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.header-left h1 {
+    margin: 0;
+    font-size: 1.8em;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-info span {
+    font-size: 0.9em;
+}
+
+.logo {
+    height: 50px;
+}
+
+.logout-button {
+    background: none;
+    border: 1px solid var(--carbonell-amarelo);
+    color: var(--carbonell-amarelo);
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.9em;
+}
+
+.logout-button:hover {
+    background-color: var(--carbonell-amarelo);
+    color: var(--carbonell-azul-marinho);
+}
+
+/* --- ESTILOS DA BUSCA DO TERMINAL --- */
+.search-bar { margin: 20px 0; display: flex; gap: 10px; }
+.search-bar input { flex-grow: 1; padding: 15px; font-size: 1.2em; border-radius: 8px; border: 2px solid var(--carbonell-azul-escuro); background-color: var(--carbonell-branco); color: var(--carbonell-azul-marinho); box-sizing: border-box; }
+#search-results { display: flex; flex-direction: column; gap: 10px; }
+.student-result-item { display: flex; align-items: center; background-color: var(--carbonell-azul-escuro); padding: 10px; border-radius: 8px; }
+.student-photo-small { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid var(--carbonell-amarelo); }
+.student-info { flex-grow: 1; display: flex; flex-direction: column; }
+.student-name { font-weight: bold; color: var(--carbonell-branco); }
+.student-class { font-size: 0.9em; opacity: 0.8; color: var(--carbonell-branco); }
+.btn { padding: 10px 20px; border: none; border-radius: 5px; font-size: 1em; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: background-color 0.3s ease; }
+.btn-action { background-color: var(--carbonell-amarelo); color: var(--carbonell-azul-marinho); }
+.btn-danger, #clear-all-btn { background-color: var(--carbonell-vermelho); color: var(--carbonell-branco); font-size: 0.9em; padding: 8px 16px; }
+#search-btn, #mic-btn { background-color: var(--carbonell-azul-escuro); color: var(--carbonell-branco); padding: 0 25px; }
+#mic-btn { font-size: 1.5em; padding: 0 15px; }
+#mic-btn.is-listening { background-color: var(--carbonell-vermelho); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(216, 42, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0); } }
+
+/* --- ESTILOS DO PAINEL DE EXIBIÇÃO --- */
+.display-header {
+    justify-content: center;
+    border: none;
+}
+
+.logo-display {
+    height: 60px;
+}
+
+#student-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: minmax(280px, auto);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding-top: 10vh;
+}
+
+.logo-empty {
+    max-height: 150px;
+    margin-bottom: 20px;
+}
+
+.empty-state h2 {
+    font-size: 2.5em;
+    color: var(--carbonell-branco);
+    opacity: 0.7;
+}
+
+.student-card {
+    background-color: var(--carbonell-azul-escuro);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    border: 3px solid var(--carbonell-amarelo);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.student-photo-large {
+    width: 150px;
+    height: 150px;
+    max-width: 70%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid var(--carbonell-branco);
+    margin-bottom: 10px;
+}
+
+.student-card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.student-card-name {
+    font-size: clamp(1.2em, 2vw, 1.6em);
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--carbonell-branco);
+}
+
+.student-card-class {
+    font-size: clamp(1em, 1.5vw, 1.3em);
+    font-weight: 700;
+    opacity: 0.8;
+    color: var(--carbonell-branco);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.exiting {
+    animation: card-exit 0.5s ease-in forwards;
+}
+
+@keyframes card-exit {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+}
+
+/* --- ESTILOS RESPONSIVOS --- */
+
+/* Telas de Tablet (orientação retrato) e menores */
+@media (max-width: 992px) {
+    #student-grid {
+        grid-template-columns: repeat(3, 1fr); /* 3 colunas */
+    }
+}
+
+/* Telas de Celular (grandes) e menores */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    /* Correção para o header do terminal no mobile */
+    header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+    }
+    .header-left, .header-right {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        text-align: center;
+    }
+    .user-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* Correção para a barra de busca no mobile */
+    .search-bar {
+        flex-wrap: wrap;
+    }
+    .search-bar input {
+        flex-basis: 100%;
+        margin-bottom: 10px;
+    }
+    .search-bar #search-btn,
+    .search-bar #mic-btn {
+        flex-grow: 1;
+        flex-basis: 0;
+    }
+
+    /* Ajuste da grade do painel para mobile */
+    #student-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 colunas */
+    }
+
+    .student-result-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 5px;
+    }
+    .student-photo-small {
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+    .btn-action {
+        width: 100%;
+        margin-top: 10px;
+        padding: 12px;
+    }
+}
+
+/* Telas de Celular (pequenas) */
+@media (max-width: 576px) {
+    #student-grid {
+        grid-template-columns: 1fr; /* Apenas 1 coluna */
+    }
+
+    .header-left h1 {
+        font-size: 1.5em; /* Reduz um pouco o título no mobile */
+    }
 }
