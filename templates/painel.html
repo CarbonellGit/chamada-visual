@@ -165,8 +165,6 @@
             });
         }
 
-        activateBtn.addEventListener('click', startMonitoring);
-
         const deleteStudent = async (studentId) => {
             try {
                 await deleteDoc(doc(db, "chamados", studentId));
@@ -174,7 +172,53 @@
                 console.error("Erro ao deletar aluno: ", error);
             }
         };
+        
+        // =======================================================================
+        // --- CÓDIGO PARA MANTER A TELA ATIVA (WAKE LOCK API) ---
+        // =======================================================================
 
+        let wakeLock = null;
+
+        // Função para solicitar o bloqueio de ativação da tela
+        const requestWakeLock = async () => {
+            // Verifica se o navegador suporta a API
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock ativado. A tela não será desligada.');
+
+                    // Adiciona um listener para quando o bloqueio for liberado (ex: pelo sistema)
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Wake Lock foi liberado pelo sistema.');
+                    });
+
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
+                }
+            } else {
+                console.warn('API Wake Lock não é suportada neste navegador.');
+            }
+        };
+
+        // Adiciona o evento de clique ao botão
+        activateBtn.addEventListener('click', () => {
+            startMonitoring();   // Inicia o monitoramento
+            requestWakeLock();   // Solicita para manter a tela ativa
+        });
+
+        // Ouve mudanças na visibilidade da página para reativar o bloqueio
+        // se o usuário minimizar/maximizar a janela.
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+        
+        // =======================================================================
+        // --- FIM DO CÓDIGO WAKE LOCK ---
+        // =======================================================================
+
+        // Rotina para limpar chamadas antigas
         setInterval(async () => {
             const now = Date.now();
             const timeoutThreshold = new Date(now - TIMEOUT_MINUTES * 60 * 1000);
