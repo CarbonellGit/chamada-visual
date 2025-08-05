@@ -92,9 +92,10 @@ body {
     background-color: var(--carbonell-azul-marinho);
 }
 
-/* Estilos aplicados APENAS à página do painel para evitar rolagem */
-html, body.panel-page {
-    height: 100%;
+/* CORREÇÃO: Estilos aplicados APENAS à página do painel. */
+/* Usamos 100vh (viewport height) para não precisar mexer na tag <html> globalmente. */
+body.panel-page {
+    height: 100vh;
     overflow: hidden;
 }
 
@@ -206,7 +207,6 @@ header {
 #student-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    /* A altura da linha é definida abaixo, especificamente para o painel */
     grid-auto-rows: minmax(280px, auto);
     gap: 15px;
     margin-top: 20px;
