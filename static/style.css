@@ -86,14 +86,16 @@ body {
 }
 
 /* --- ESTILOS DO CORPO DO TERMINAL E PAINEL --- */
-html, .terminal-body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden; /* Impede a rolagem no corpo da página */
-}
 
+/* Estilo base compartilhado */
 .terminal-body {
     background-color: var(--carbonell-azul-marinho);
+}
+
+/* Estilos aplicados APENAS à página do painel para evitar rolagem */
+html, body.panel-page {
+    height: 100%;
+    overflow: hidden;
 }
 
 .container {
@@ -106,13 +108,16 @@ html, .terminal-body {
 /* Container fluido para o painel ocupar telas grandes */
 .display-container {
     max-width: 95%; /* Ocupa 95% da largura da tela */
+}
+
+/* Ajusta o container do painel para ocupar a altura toda */
+body.panel-page .display-container {
     height: 100%;
     display: flex;
     flex-direction: column;
     padding: 15px;
     box-sizing: border-box;
 }
-
 
 /* --- ESTILOS DO HEADER DO TERMINAL --- */
 header {
@@ -201,12 +206,19 @@ header {
 #student-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    grid-template-rows: repeat(2, 1fr); /* Alterado para duas linhas de altura flexível */
+    /* A altura da linha é definida abaixo, especificamente para o painel */
+    grid-auto-rows: minmax(280px, auto);
     gap: 15px;
-    margin-top: 0;
-    flex-grow: 1; /* Permite que a grade cresça para preencher o espaço */
+    margin-top: 20px;
+}
+
+/* Aplica a altura de linha flexível APENAS no painel */
+body.panel-page #student-grid {
+    grid-template-rows: repeat(2, 1fr);
+    flex-grow: 1;
     height: 100%;
 }
+
 
 .empty-state {
     grid-column: 1 / -1;
