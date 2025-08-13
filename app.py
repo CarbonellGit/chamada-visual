@@ -1,4 +1,4 @@
-# app.py - Versão com Otimização de Carregamento de Fotos
+# app.py - Versão com busca parcial e filtros de turma
 
 import os
 import requests
@@ -13,7 +13,8 @@ from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from authlib.integrations.flask_client import OAuth
 from functools import wraps
-import concurrent.futures # Importa a biblioteca para paralelismo
+import concurrent.futures
+import unicodedata # Importado para remover acentos
 
 # --- 1. CONFIGURAÇÕES E INICIALIZAÇÕES ---
 load_dotenv()
@@ -89,9 +90,6 @@ def get_sophia_token():
         print(f"Erro ao obter token da API Sophia: {e}")
         return None
 
-# --- INÍCIO DA ALTERAÇÃO ---
-
-# Função auxiliar para buscar uma única foto. Será executada em paralelo.
 def fetch_photo(aluno_id, headers):
     try:
         photo_url = f"{API_BASE_URL}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
@@ -105,6 +103,15 @@ def fetch_photo(aluno_id, headers):
         pass
     return aluno_id, None
 
+# --- NOVA FUNÇÃO AUXILIAR PARA NORMALIZAR TEXTO ---
+def normalize_text(text):
+    """Remove acentos e converte para minúsculas."""
+    if not text:
+        return ""
+    text = str(text).lower()
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
+# --- INÍCIO DA ALTERAÇÃO NA LÓGICA DE BUSCA ---
 @app.route('/api/buscar-aluno', methods=['GET'])
 @login_obrigatorio
 def buscar_aluno():
@@ -113,48 +120,72 @@ def buscar_aluno():
         return jsonify({"erro": "Não foi possível autenticar com a API Sophia."}), 500
     
     parte_nome = request.args.get('parteNome', '').strip()
+    grupo_filtro = request.args.get('grupo', 'todos').upper() # Recebe o filtro de grupo
+
     if not parte_nome or len(parte_nome) < 2:
         return jsonify([])
 
+    # A busca na API continua ampla, usando o primeiro nome para otimizar
+    primeiro_nome = parte_nome.split(' ')[0]
     headers = {'token': token, 'Accept': 'application/json'}
-    params = {"Nome": parte_nome}
+    params = {"Nome": primeiro_nome}
     search_url = f"{API_BASE_URL}/api/v1/alunos"
     
     try:
         response_alunos = requests.get(search_url, headers=headers, params=params)
         response_alunos.raise_for_status()
-        lista_alunos = response_alunos.json()
+        lista_alunos_api = response_alunos.json()
         
-        # Mapeia os dados básicos dos alunos
+        # --- LÓGICA DE FILTRO E BUSCA PARCIAL ---
+        
+        alunos_filtrados = []
+        termos_busca_normalizados = normalize_text(parte_nome).split()
+
+        for aluno in lista_alunos_api:
+            turma_aluno = aluno.get("turmas", [{}])[0].get("descricao", "")
+            
+            # 1. Ignora alunos do Ensino Médio (EM)
+            if turma_aluno.upper().startswith('EM'):
+                continue
+
+            # 2. Filtra por grupo (se não for "todos")
+            if grupo_filtro != 'TODOS' and not turma_aluno.upper().startswith(grupo_filtro):
+                continue
+            
+            # 3. Lógica de busca parcial (fuzzy search)
+            nome_completo_normalizado = normalize_text(aluno.get("nome"))
+            if all(termo in nome_completo_normalizado for termo in termos_busca_normalizados):
+                alunos_filtrados.append(aluno)
+
+        # Mapeia os dados básicos dos alunos já filtrados
         alunos_map = {
             aluno.get("codigo"): {
                 "id": aluno.get("codigo"),
                 "nomeCompleto": aluno.get("nome", "Nome não encontrado"),
                 "turma": aluno.get("turmas", [{}])[0].get("descricao", "Sem turma")
-            } for aluno in lista_alunos if aluno.get("codigo")
+            } for aluno in alunos_filtrados if aluno.get("codigo")
         }
 
-        # Busca todas as fotos em paralelo
+        # Busca as fotos em paralelo apenas para os alunos que passaram no filtro
         fotos = {}
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_id = {executor.submit(fetch_photo, aluno_id, headers): aluno_id for aluno_id in alunos_map.keys()}
-            for future in concurrent.futures.as_completed(future_to_id):
-                aluno_id, foto_data = future.result()
-                if foto_data:
-                    fotos[aluno_id] = foto_data
+        if alunos_map:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_to_id = {executor.submit(fetch_photo, aluno_id, headers): aluno_id for aluno_id in alunos_map.keys()}
+                for future in concurrent.futures.as_completed(future_to_id):
+                    aluno_id, foto_data = future.result()
+                    if foto_data:
+                        fotos[aluno_id] = foto_data
 
-        # Formata a resposta final, combinando dados do aluno com a foto
+        # Formata a resposta final
         alunos_formatados = []
         for aluno_id, aluno_data in alunos_map.items():
-            aluno_data['fotoUrl'] = fotos.get(aluno_id) # Pega a foto do mapa de fotos
+            aluno_data['fotoUrl'] = fotos.get(aluno_id)
             alunos_formatados.append(aluno_data)
             
         return jsonify(alunos_formatados)
     except requests.exceptions.RequestException as e:
         print(f"Erro ao buscar alunos na API Sophia: {e}")
         return jsonify({"erro": "Ocorreu um erro ao buscar os dados no sistema Sophia."}), 500
-
-# A rota /api/aluno/<id>/foto não é mais necessária e foi removida.
 
 # --- FIM DA ALTERAÇÃO ---
 
