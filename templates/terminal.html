@@ -107,10 +107,20 @@
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'student-result-item';
 
-                // --- INÍCIO DA CORREÇÃO ---
-                // Agora montamos a URL da imagem corretamente aqui
-                const photoSrc = student.fotoUrl ? `data:image/jpeg;base64,${student.fotoUrl}` : defaultAvatar;
-                // --- FIM DA CORREÇÃO ---
+                // --- INÍCIO DA NOVA CORREÇÃO ---
+                let photoSrc = defaultAvatar; // Define o avatar padrão
+
+                // Verifica se a fotoUrl existe e não está vazia
+                if (student.fotoUrl) {
+                    // Se a string já for uma URL de dados completa, usa-a diretamente
+                    if (student.fotoUrl.startsWith('data:image')) {
+                        photoSrc = student.fotoUrl;
+                    } else {
+                        // Caso contrário, assume que é um base64 puro e monta a URL de dados
+                        photoSrc = `data:image/jpeg;base64,${student.fotoUrl}`;
+                    }
+                }
+                // --- FIM DA NOVA CORREÇÃO ---
 
                 studentDiv.innerHTML = `
                     <img src="${photoSrc}" alt="Foto de ${student.nomeCompleto}" class="student-photo-small">
@@ -122,15 +132,12 @@
                 `;
 
                 studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
-                    // --- INÍCIO DA CORREÇÃO ---
-                    // Garante que os dados enviados para a chamada também usem a URL da imagem montada
                     const studentDataForCall = {
                         id: student.id,
                         nomeCompleto: student.nomeCompleto,
                         turma: student.turma,
-                        fotoUrl: photoSrc
+                        fotoUrl: photoSrc // Envia a URL de dados já montada e corrigida
                     };
-                    // --- FIM DA CORREÇÃO ---
                     callStudent(studentDataForCall, event.target);
                 });
 
@@ -154,8 +161,6 @@
             try {
                 const response = await fetch(`/api/buscar-aluno?parteNome=${encodeURIComponent(cleanedSearchTerm)}&grupo=${selectedGrupo}`);
                 const students = await response.json();
-
-                // Nenhuma manipulação da foto é necessária aqui, a função displayResults cuidará disso.
                 displayResults(students);
             } catch (error) {
                 console.error('Erro ao buscar alunos:', error);
