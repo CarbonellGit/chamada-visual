@@ -52,7 +52,7 @@
                 </div>
             </div>
         </header>
- 
+
         <main>
             <div class="filter-container" id="grupo-filter">
                 <div class="filter-btn">
@@ -72,6 +72,7 @@
                     <label for="filter-af">Anos Finais</label>
                 </div>
             </div>
+
             <form class="search-bar" id="search-form">
                 <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar...">
                 <button type="submit" class="btn" id="search-btn">Buscar</button>
@@ -82,11 +83,11 @@
     </div>
 
     <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
-    
+
     <script type="module">
         import { db } from '/static/firebase-config.js';
         import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
-        
+
         const searchForm = document.getElementById('search-form');
         const searchInput = document.getElementById('search-input');
         const micBtn = document.getElementById('mic-btn');
@@ -105,8 +106,12 @@
             students.forEach(student => {
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'student-result-item';
+
+                // --- INÍCIO DA CORREÇÃO ---
+                // Agora montamos a URL da imagem corretamente aqui
                 const photoSrc = student.fotoUrl ? `data:image/jpeg;base64,${student.fotoUrl}` : defaultAvatar;
-                
+                // --- FIM DA CORREÇÃO ---
+
                 studentDiv.innerHTML = `
                     <img src="${photoSrc}" alt="Foto de ${student.nomeCompleto}" class="student-photo-small">
                     <div class="student-info">
@@ -115,9 +120,17 @@
                     </div>
                     <button class="btn btn-action">Chamar</button>
                 `;
-                
+
                 studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
-                    const studentDataForCall = { ...student, fotoUrl: photoSrc };
+                    // --- INÍCIO DA CORREÇÃO ---
+                    // Garante que os dados enviados para a chamada também usem a URL da imagem montada
+                    const studentDataForCall = {
+                        id: student.id,
+                        nomeCompleto: student.nomeCompleto,
+                        turma: student.turma,
+                        fotoUrl: photoSrc
+                    };
+                    // --- FIM DA CORREÇÃO ---
                     callStudent(studentDataForCall, event.target);
                 });
 
@@ -131,8 +144,7 @@
                 searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Digite pelo menos 2 letras para buscar.</p>';
                 return;
             }
-            
-            // --- INÍCIO DA ALTERAÇÃO: LER O FILTRO E ENVIAR NA REQUISIÇÃO ---
+
             const selectedGrupo = document.querySelector('input[name="grupo"]:checked').value;
 
             searchBtn.disabled = true;
@@ -140,19 +152,11 @@
             searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Buscando...</p>';
 
             try {
-                // Adiciona o parâmetro 'grupo' na URL da API
                 const response = await fetch(`/api/buscar-aluno?parteNome=${encodeURIComponent(cleanedSearchTerm)}&grupo=${selectedGrupo}`);
                 const students = await response.json();
-                
-                // Correção para exibir a imagem base64
-                const studentsWithProperFoto = students.map(s => {
-                    if (s.fotoUrl && !s.fotoUrl.startsWith('data:')) {
-                       s.fotoUrl = `data:image/jpeg;base64,${s.fotoUrl}`;
-                    }
-                    return s;
-                });
 
-                displayResults(studentsWithProperFoto); 
+                // Nenhuma manipulação da foto é necessária aqui, a função displayResults cuidará disso.
+                displayResults(students);
             } catch (error) {
                 console.error('Erro ao buscar alunos:', error);
                 searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Erro ao conectar com o servidor.</p>';
@@ -160,7 +164,6 @@
                 searchBtn.disabled = false;
                 searchBtn.textContent = 'Buscar';
             }
-            // --- FIM DA ALTERAÇÃO ---
         };
 
         const callStudent = async (studentData, buttonElement) => {
