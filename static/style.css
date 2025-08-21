@@ -92,8 +92,7 @@ body {
     background-color: var(--carbonell-azul-marinho);
 }
 
-/* CORREÇÃO: Estilos aplicados APENAS à página do painel. */
-/* Usamos 100vh (viewport height) para não precisar mexer na tag <html> globalmente. */
+/* Estilos aplicados APENAS à página do painel. */
 body.panel-page {
     height: 100vh;
     overflow: hidden;
@@ -195,22 +194,14 @@ header {
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(216, 42, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0); } }
 
 /* --- ESTILOS DO PAINEL DE EXIBIÇÃO --- */
-.display-header {
-    justify-content: center;
-    border: none;
-}
-
-.logo-display {
-    height: 60px;
-}
 
 #student-grid {
     display: grid;
     gap: 15px;
     margin-top: 20px;
     grid-auto-rows: minmax(280px, auto);
-    /* Define o layout para telas pequenas (celulares) como padrão (2 colunas) */
-    grid-template-columns: repeat(2, 1fr);
+    /* Abordagem Mobile First: Começa com 1 coluna como padrão */
+    grid-template-columns: 1fr;
 }
 
 /* Aplica a altura de linha flexível APENAS no painel */
@@ -246,13 +237,13 @@ body.panel-page #student-grid {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center; /* Centraliza o conteúdo verticalmente */
+    justify-content: center;
     animation: fadeIn 0.5s ease-in-out;
-    overflow: hidden; /* Impede que o conteúdo transborde */
+    overflow: hidden;
 }
 
 .student-photo-large {
-    width: 60%; /* Usa porcentagem para melhor escalonamento */
+    width: 60%;
     height: auto;
     aspect-ratio: 1 / 1;
     max-width: 150px;
@@ -268,28 +259,22 @@ body.panel-page #student-grid {
 }
 
 .student-card-name {
-    font-size: clamp(1em, 1.8vw, 1.5em); /* Ajustado para melhor escalonamento */
+    font-size: clamp(1em, 1.8vw, 1.5em);
     font-weight: 900;
     line-height: 1.2;
     color: var(--carbonell-branco);
 }
 
 .student-card-class {
-    font-size: clamp(0.9em, 1.3vw, 1.2em); /* Ajustado para melhor escalonamento */
+    font-size: clamp(0.9em, 1.3vw, 1.2em);
     font-weight: 700;
     opacity: 0.8;
     color: var(--carbonell-branco);
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
 }
 
 .exiting {
@@ -297,57 +282,38 @@ body.panel-page #student-grid {
 }
 
 @keyframes card-exit {
-    from {
-        opacity: 1;
-        transform: scale(1);
-    }
-    to {
-        opacity: 0;
-        transform: scale(0.8);
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.8); }
+}
+
+/* --- ESTILOS RESPONSIVOS FINAIS --- */
+
+/* Celulares grandes (a partir de 576px) */
+@media (min-width: 576px) {
+    #student-grid {
+        grid-template-columns: repeat(2, 1fr); /* 2 colunas */
     }
 }
 
-/* --- ESTILOS RESPONSIVOS ATUALIZADOS --- */
-
-/* Telas de Tablet (a partir de 768px de largura) */
+/* Tablets (a partir de 768px) */
 @media (min-width: 768px) {
-    .container {
-        padding: 15px;
-    }
     #student-grid {
         grid-template-columns: repeat(3, 1fr); /* 3 colunas */
     }
-    .student-result-item {
-        flex-direction: row; /* Volta ao layout original em tablets */
-        align-items: center;
-        text-align: left;
-        gap: 15px;
-    }
-    .student-photo-small {
-        margin-right: 15px;
-        margin-bottom: 0;
-    }
-    .btn-action {
-        width: auto; /* Volta ao tamanho original */
-        margin-top: 0;
-        padding: 10px 20px;
-    }
 }
 
-/* Telas de Desktops e TVs (a partir de 1200px de largura) */
-@media (min-width: 1200px) {
+/* Desktops e TVs (a partir de 992px) - PONTO DA CORREÇÃO */
+@media (min-width: 992px) {
     #student-grid {
         grid-template-columns: repeat(5, 1fr); /* 5 colunas */
     }
 }
 
-/* Telas de Celular (grandes) e menores */
+/* Ajustes gerais para telas menores que um tablet */
 @media (max-width: 767px) {
     .container {
         padding: 15px;
     }
-
-    /* Correção para o header do terminal no mobile */
     header {
         flex-direction: column;
         align-items: stretch;
@@ -363,8 +329,6 @@ body.panel-page #student-grid {
         flex-direction: column;
         gap: 10px;
     }
-
-    /* Correção para a barra de busca no mobile */
     .search-bar {
         flex-wrap: wrap;
     }
@@ -377,7 +341,6 @@ body.panel-page #student-grid {
         flex-grow: 1;
         flex-basis: 0;
     }
-    
     .student-result-item {
         flex-direction: column;
         align-items: center;
@@ -395,13 +358,9 @@ body.panel-page #student-grid {
     }
 }
 
-/* Telas de Celular (pequenas) */
-@media (max-width: 576px) {
-    #student-grid {
-        grid-template-columns: 1fr; /* Apenas 1 coluna */
-    }
-
+/* Ajuste para celulares bem pequenos */
+@media (max-width: 575px) {
     .header-left h1 {
-        font-size: 1.5em; /* Reduz um pouco o título no mobile */
+        font-size: 1.5em;
     }
 }
