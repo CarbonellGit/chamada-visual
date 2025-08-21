@@ -206,10 +206,11 @@ header {
 
 #student-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    grid-auto-rows: minmax(280px, auto);
     gap: 15px;
     margin-top: 20px;
+    grid-auto-rows: minmax(280px, auto);
+    /* Define o layout para telas pequenas (celulares) como padrão (2 colunas) */
+    grid-template-columns: repeat(2, 1fr);
 }
 
 /* Aplica a altura de linha flexível APENAS no painel */
@@ -218,7 +219,6 @@ body.panel-page #student-grid {
     flex-grow: 1;
     height: 100%;
 }
-
 
 .empty-state {
     grid-column: 1 / -1;
@@ -307,17 +307,42 @@ body.panel-page #student-grid {
     }
 }
 
-/* --- ESTILOS RESPONSIVOS --- */
+/* --- ESTILOS RESPONSIVOS ATUALIZADOS --- */
 
-/* Telas de Tablet (orientação retrato) e menores */
-@media (max-width: 992px) {
+/* Telas de Tablet (a partir de 768px de largura) */
+@media (min-width: 768px) {
+    .container {
+        padding: 15px;
+    }
     #student-grid {
         grid-template-columns: repeat(3, 1fr); /* 3 colunas */
+    }
+    .student-result-item {
+        flex-direction: row; /* Volta ao layout original em tablets */
+        align-items: center;
+        text-align: left;
+        gap: 15px;
+    }
+    .student-photo-small {
+        margin-right: 15px;
+        margin-bottom: 0;
+    }
+    .btn-action {
+        width: auto; /* Volta ao tamanho original */
+        margin-top: 0;
+        padding: 10px 20px;
+    }
+}
+
+/* Telas de Desktops e TVs (a partir de 1200px de largura) */
+@media (min-width: 1200px) {
+    #student-grid {
+        grid-template-columns: repeat(5, 1fr); /* 5 colunas */
     }
 }
 
 /* Telas de Celular (grandes) e menores */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
     .container {
         padding: 15px;
     }
@@ -352,12 +377,7 @@ body.panel-page #student-grid {
         flex-grow: 1;
         flex-basis: 0;
     }
-
-    /* Ajuste da grade do painel para mobile */
-    #student-grid {
-        grid-template-columns: repeat(2, 1fr); /* 2 colunas */
-    }
-
+    
     .student-result-item {
         flex-direction: column;
         align-items: center;
