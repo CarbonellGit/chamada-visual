@@ -92,6 +92,7 @@ body {
 
 body.panel-page {
     height: 100vh;
+    overflow: hidden;
 }
 
 .container {
@@ -105,8 +106,9 @@ body.panel-page {
     max-width: 95%;
 }
 
+/* PONTO DA CORREÇÃO (Fileira Cortada): Reduz a altura para 95vh para dar espaço à barra do navegador */
 body.panel-page .display-container {
-    height: 100%;
+    height: 95vh;
     display: flex;
     flex-direction: column;
     padding: 15px;
@@ -191,17 +193,16 @@ header {
 
 #student-grid {
     display: grid;
+    gap: 15px;
     margin-top: 20px;
-    grid-auto-rows: minmax(280px, auto);
-    /* PONTO DA CORREÇÃO: Define 5 colunas com tamanho percentual fixo para não esticarem. */
-    grid-template-columns: repeat(5, 18.8%);
-    gap: 1.5%;
-    /* Centraliza o conjunto de colunas na tela. */
-    justify-content: center;
+    /* Começa com 1 coluna e as media queries ajustam para telas maiores */
+    grid-template-columns: 1fr;
 }
 
+/* PONTO DA CORREÇÃO (Fileira Cortada): Define explicitamente 2 linhas de altura igual */
 body.panel-page #student-grid {
     flex-grow: 1;
+    grid-template-rows: repeat(2, 1fr);
 }
 
 .empty-state {
@@ -285,19 +286,26 @@ body.panel-page #student-grid {
 }
 
 /* --- ESTILOS RESPONSIVOS --- */
-/* As regras abaixo afetam apenas o TERMINAL e o HEADER, pois a grade do painel agora é fixa. */
-
-@media (max-width: 992px) {
-    /* Em telas menores que um desktop, as colunas do painel podem ficar muito pequenas.
-       Esta regra opcional muda para 3 colunas em tablets.
-       Se quiser que SEMPRE sejam 5, apague este bloco. */
+/* PONTO DA CORREÇÃO (Grade): Retornamos à lógica que funcionou, com breakpoints claros */
+@media (min-width: 576px) {
     #student-grid {
-        grid-template-columns: repeat(3, 30%);
-        gap: 2.5%;
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
+@media (min-width: 768px) {
+    #student-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
 
+@media (min-width: 992px) {
+    #student-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* As regras abaixo afetam o header e o terminal em telas pequenas */
 @media (max-width: 767px) {
     .container {
         padding: 15px;
@@ -344,18 +352,10 @@ body.panel-page #student-grid {
         margin-top: 10px;
         padding: 12px;
     }
-
-    #student-grid {
-       grid-template-columns: repeat(2, 48%);
-       gap: 4%;
-    }
 }
 
 @media (max-width: 575px) {
     .header-left h1 {
         font-size: 1.5em;
-    }
-    #student-grid {
-       grid-template-columns: 1fr;
     }
 }
