@@ -86,8 +86,6 @@ body {
 }
 
 /* --- ESTILOS DO CORPO DO TERMINAL E PAINEL --- */
-
-/* Estilo base compartilhado */
 .terminal-body {
     background-color: var(--carbonell-azul-marinho);
 }
@@ -97,18 +95,16 @@ body.panel-page {
 }
 
 .container {
-    max-width: 1200px; /* Largura máxima para o terminal */
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
     box-sizing: border-box;
 }
 
-/* Container fluido para o painel ocupar telas grandes */
 .display-container {
-    max-width: 95%; /* Ocupa 95% da largura da tela */
+    max-width: 95%;
 }
 
-/* Ajusta o container do painel para ocupar a altura toda */
 body.panel-page .display-container {
     height: 100%;
     display: flex;
@@ -125,7 +121,7 @@ header {
     padding-bottom: 20px;
     border-bottom: 1px solid var(--carbonell-azul-escuro);
     color: var(--carbonell-branco);
- }
+}
 
 .header-left {
     display: flex;
@@ -198,11 +194,10 @@ header {
     gap: 15px;
     margin-top: 20px;
     grid-auto-rows: minmax(280px, auto);
-    grid-template-columns: 1fr;
+    /* ABORDAGEM FINAL: A grade terá SEMPRE 5 colunas. Sem media queries. */
+    grid-template-columns: repeat(5, 1fr);
 }
 
-/* PONTO DA CORREÇÃO: Esta regra foi adicionada de volta, mas sem as propriedades que causavam problemas. */
-/* Isso garante que a grade se expanda para preencher o espaço, corrigindo o layout de 3 colunas. */
 body.panel-page #student-grid {
     flex-grow: 1;
 }
@@ -260,14 +255,14 @@ body.panel-page #student-grid {
 .student-card-name {
     word-wrap: break-word;
     overflow-wrap: break-word;
-    font-size: clamp(1em, 1.8vw, 1.5em);
+    font-size: clamp(0.9em, 1.5vw, 1.4em); /* Fonte levemente ajustada */
     font-weight: 900;
     line-height: 1.2;
     color: var(--carbonell-branco);
 }
 
 .student-card-class {
-    font-size: clamp(0.9em, 1.3vw, 1.2em);
+    font-size: clamp(0.8em, 1.3vw, 1.2em); /* Fonte levemente ajustada */
     font-weight: 700;
     opacity: 0.8;
     color: var(--carbonell-branco);
@@ -287,30 +282,10 @@ body.panel-page #student-grid {
     to { opacity: 0; transform: scale(0.8); }
 }
 
-/* --- ESTILOS RESPONSIVOS FINAIS --- */
+/* --- ESTILOS RESPONSIVOS --- */
+/* ATENÇÃO: As regras de responsividade para a GRADE do painel foram REMOVIDAS. */
+/* As regras abaixo afetam apenas o TERMINAL e o HEADER. */
 
-/* Celulares grandes (a partir de 576px) */
-@media (min-width: 576px) {
-    #student-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* Tablets (a partir de 768px) */
-@media (min-width: 768px) {
-    #student-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-/* Desktops e TVs (a partir de 992px) */
-@media (min-width: 992px) {
-    #student-grid {
-        grid-template-columns: repeat(5, 1fr);
-    }
-}
-
-/* Ajustes gerais para telas menores que um tablet */
 @media (max-width: 767px) {
     .container {
         padding: 15px;
@@ -359,7 +334,6 @@ body.panel-page #student-grid {
     }
 }
 
-/* Ajuste para celulares bem pequenos */
 @media (max-width: 575px) {
     .header-left h1 {
         font-size: 1.5em;
