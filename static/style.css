@@ -191,11 +191,13 @@ header {
 
 #student-grid {
     display: grid;
-    gap: 15px;
     margin-top: 20px;
     grid-auto-rows: minmax(280px, auto);
-    /* ABORDAGEM FINAL: A grade terá SEMPRE 5 colunas. Sem media queries. */
-    grid-template-columns: repeat(5, 1fr);
+    /* PONTO DA CORREÇÃO: Define 5 colunas com tamanho percentual fixo para não esticarem. */
+    grid-template-columns: repeat(5, 18.8%);
+    gap: 1.5%;
+    /* Centraliza o conjunto de colunas na tela. */
+    justify-content: center;
 }
 
 body.panel-page #student-grid {
@@ -255,14 +257,14 @@ body.panel-page #student-grid {
 .student-card-name {
     word-wrap: break-word;
     overflow-wrap: break-word;
-    font-size: clamp(0.9em, 1.5vw, 1.4em); /* Fonte levemente ajustada */
+    font-size: clamp(0.9em, 1.5vw, 1.4em);
     font-weight: 900;
     line-height: 1.2;
     color: var(--carbonell-branco);
 }
 
 .student-card-class {
-    font-size: clamp(0.8em, 1.3vw, 1.2em); /* Fonte levemente ajustada */
+    font-size: clamp(0.8em, 1.3vw, 1.2em);
     font-weight: 700;
     opacity: 0.8;
     color: var(--carbonell-branco);
@@ -283,8 +285,18 @@ body.panel-page #student-grid {
 }
 
 /* --- ESTILOS RESPONSIVOS --- */
-/* ATENÇÃO: As regras de responsividade para a GRADE do painel foram REMOVIDAS. */
-/* As regras abaixo afetam apenas o TERMINAL e o HEADER. */
+/* As regras abaixo afetam apenas o TERMINAL e o HEADER, pois a grade do painel agora é fixa. */
+
+@media (max-width: 992px) {
+    /* Em telas menores que um desktop, as colunas do painel podem ficar muito pequenas.
+       Esta regra opcional muda para 3 colunas em tablets.
+       Se quiser que SEMPRE sejam 5, apague este bloco. */
+    #student-grid {
+        grid-template-columns: repeat(3, 30%);
+        gap: 2.5%;
+    }
+}
+
 
 @media (max-width: 767px) {
     .container {
@@ -332,10 +344,18 @@ body.panel-page #student-grid {
         margin-top: 10px;
         padding: 12px;
     }
+
+    #student-grid {
+       grid-template-columns: repeat(2, 48%);
+       gap: 4%;
+    }
 }
 
 @media (max-width: 575px) {
     .header-left h1 {
         font-size: 1.5em;
+    }
+    #student-grid {
+       grid-template-columns: 1fr;
     }
 }
