@@ -184,8 +184,9 @@ header {
 .btn { padding: 10px 20px; border: none; border-radius: 5px; font-size: 1em; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: background-color 0.3s ease; }
 .btn-action { background-color: var(--carbonell-amarelo); color: var(--carbonell-azul-marinho); }
 .btn-danger, #clear-all-btn { background-color: var(--carbonell-vermelho); color: var(--carbonell-branco); font-size: 0.9em; padding: 8px 16px; }
-#search-btn, #mic-btn { background-color: var(--carbonell-azul-escuro); color: var(--carbonell-branco); padding: 0 25px; }
-#mic-btn { font-size: 1.5em; padding: 0 15px; }
+/* ALTERAÇÃO AQUI para incluir o novo botão */
+#search-btn, #mic-btn, #clear-search-btn { background-color: var(--carbonell-azul-escuro); color: var(--carbonell-branco); padding: 0 25px; }
+#mic-btn, #clear-search-btn { font-size: 1.5em; padding: 0 15px; }
 #mic-btn.is-listening { background-color: var(--carbonell-vermelho); animation: pulse 1.5s infinite; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(216, 42, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0); } }
 
@@ -333,7 +334,9 @@ body.panel-page #student-grid {
         margin-bottom: 10px;
     }
     .search-bar #search-btn,
-    .search-bar #mic-btn {
+    .search-bar #mic-btn,
+    /* ALTERAÇÃO AQUI para responsividade */
+    .search-bar #clear-search-btn {
         flex-grow: 1;
         flex-basis: 0;
     }
