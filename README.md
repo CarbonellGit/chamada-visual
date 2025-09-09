@@ -33,4 +33,4 @@ Este projeto foi construído com uma combinação de tecnologias de backend, fro
 
 * **Google Firebase (Firestore):** Utilizado como um banco de dados NoSQL em tempo real para sincronizar os alunos chamados entre o terminal e o painel de exibição.
 
-* **Desenvolvido by: Thiago Marques 
+* **Desenvolvido by:** Thiago Marques 
