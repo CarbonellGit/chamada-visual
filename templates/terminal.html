@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal de Chamada - Colégio Carbonell</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .filter-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            display: inline-block;
+        }
+        .filter-btn input[type="radio"] {
+            display: none;
+        }
+        .filter-btn label {
+            padding: 10px 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            background-color: var(--carbonell-azul-escuro);
+            color: var(--carbonell-branco);
+            border: 2px solid var(--carbonell-azul-escuro);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .filter-btn input[type="radio"]:checked + label {
+            background-color: var(--carbonell-amarelo);
+            color: var(--carbonell-azul-marinho);
+            border-color: var(--carbonell-amarelo);
+        }
+    </style>
+</head>
+<body class="terminal-body">
+    <div class="container terminal-container">
+         <header>
+            <div class="header-left">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo">
+                <h1>Terminal de Chamada</h1>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-danger" id="clear-all-btn">Limpar Tudo</button>
+                <div class="user-info">
+                    <span>Logado como: {{ session['user']['name'] }}</span>
+                    <a href="{{ url_for('logout') }}" class="logout-button">Sair</a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="filter-container" id="grupo-filter">
+                <div class="filter-btn">
+                    <input type="radio" id="filter-todos" name="grupo" value="todos" checked>
+                    <label for="filter-todos">Todos</label>
+                </div>
+                <div class="filter-btn">
+                    <input type="radio" id="filter-ei" name="grupo" value="EI">
+                    <label for="filter-ei">Ed. Infantil</label>
+                </div>
+                <div class="filter-btn">
+                    <input type="radio" id="filter-ai" name="grupo" value="AI">
+                    <label for="filter-ai">Anos Iniciais</label>
+                </div>
+                <div class="filter-btn">
+                    <input type="radio" id="filter-af" name="grupo" value="AF">
+                    <label for="filter-af">Anos Finais</label>
+                </div>
+            </div>
+
+            <form class="search-bar" id="search-form">
+                <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar...">
+                <button type="button" class="btn" id="clear-search-btn">🗑️</button>
+                <button type="submit" class="btn" id="search-btn">Buscar</button>
+                <button type="button" class="btn" id="mic-btn">🎤</button>
+            </form>
+            <div id="search-results"></div>
+        </main>
+    </div>
+
+    <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
+
+    <script type="module">
+        import { db } from '/static/firebase-config.js';
+        import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        const searchForm = document.getElementById('search-form');
+        const searchInput = document.getElementById('search-input');
+        const micBtn = document.getElementById('mic-btn');
+        const searchResultsContainer = document.getElementById('search-results');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const searchBtn = document.getElementById('search-btn');
+        const grupoFilterContainer = document.getElementById('grupo-filter');
+        const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
+        
+        // CÓDIGO PARA O NOVO BOTÃO
+        const clearSearchBtn = document.getElementById('clear-search-btn');
+
+        const displayResults = (students) => {
+            searchResultsContainer.innerHTML = '';
+            if (students.length === 0) {
+                searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Nenhum aluno encontrado.</p>';
+                return;
+            }
+            students.forEach(student => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'student-result-item';
+
+                let photoSrc = defaultAvatar;
+
+                if (student.fotoUrl) {
+                    if (student.fotoUrl.startsWith('data:image')) {
+                        photoSrc = student.fotoUrl;
+                    } else {
+                        photoSrc = `data:image/jpeg;base64,${student.fotoUrl}`;
+                    }
+                }
+
+                studentDiv.innerHTML = `
+                    <img src="${photoSrc}" alt="Foto de ${student.nomeCompleto}" class="student-photo-small">
+                    <div class="student-info">
+                        <span class="student-name">${student.nomeCompleto}</span>
+                        <span class="student-class">${student.turma}</span>
+                    </div>
+                    <button class="btn btn-action">Chamar</button>
+                `;
+
+                studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
+                    const studentDataForCall = {
+                        id: student.id,
+                        nomeCompleto: student.nomeCompleto,
+                        turma: student.turma,
+                        fotoUrl: photoSrc
+                    };
+                    callStudent(studentDataForCall, event.target);
+                });
+
+                searchResultsContainer.appendChild(studentDiv);
+            });
+        };
+
+        const fetchStudents = async (searchTerm) => {
+            const cleanedSearchTerm = searchTerm.trim();
+            if (cleanedSearchTerm.length < 2) {
+                searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Digite pelo menos 2 letras para buscar.</p>';
+                return;
+            }
+
+            const selectedGrupo = document.querySelector('input[name="grupo"]:checked').value;
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Buscando...';
+            searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Buscando...</p>';
+
+            try {
+                const response = await fetch(`/api/buscar-aluno?parteNome=${encodeURIComponent(cleanedSearchTerm)}&grupo=${selectedGrupo}`);
+                const students = await response.json();
+                displayResults(students);
+            } catch (error) {
+                console.error('Erro ao buscar alunos:', error);
+                searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Erro ao conectar com o servidor.</p>';
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Buscar';
+            }
+        };
+
+        const callStudent = async (studentData, buttonElement) => {
+            buttonElement.textContent = "Chamando...";
+            buttonElement.disabled = true;
+            try {
+                const dataToSend = { ...studentData, timestamp: serverTimestamp() };
+                await addDoc(collection(db, "chamados"), dataToSend);
+                buttonElement.textContent = "Chamado!";
+                buttonElement.style.backgroundColor = '#5cb85c';
+            } catch (error) {
+                console.error("Erro ao chamar aluno via Firestore: ", error);
+                buttonElement.textContent = "Erro!";
+                buttonElement.style.backgroundColor = '#d9534f';
+            }
+        };
+
+        const clearAllStudents = async () => {
+            if (!confirm("Tem certeza que deseja limpar todos os alunos do painel?")) return;
+            clearAllBtn.textContent = "Limpando...";
+            clearAllBtn.disabled = true;
+            try {
+                const chamadosCollection = collection(db, "chamados");
+                const snapshot = await getDocs(chamadosCollection);
+                const deletePromises = snapshot.docs.map(studentDoc => deleteDoc(doc(db, "chamados", studentDoc.id)));
+                await Promise.all(deletePromises);
+                alert("Painel limpo com sucesso!");
+            } catch (error) {
+                console.error("Erro ao limpar o painel: ", error);
+                alert("Ocorreu um erro ao tentar limpar o painel.");
+            } finally {
+                clearAllBtn.textContent = "Limpar Tudo";
+                clearAllBtn.disabled = false;
+            }
+        };
+
+        const handleVoiceSearch = () => {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Seu navegador não suporta a pesquisa por voz.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+            recognition.onstart = () => { micBtn.classList.add('is-listening'); micBtn.textContent = '🎙️'; };
+            recognition.onresult = (event) => {
+                const spokenText = event.results[0][0].transcript;
+                searchInput.value = spokenText;
+                fetchStudents(spokenText);
+            };
+            recognition.onerror = (event) => { console.error("Erro no reconhecimento de voz:", event.error); alert("Não foi possível entender o que você disse."); };
+            recognition.onend = () => { micBtn.classList.remove('is-listening'); micBtn.textContent = '🎤'; };
+            recognition.start();
+        };
+
+        searchForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            fetchStudents(searchInput.value);
+        });
+        
+        // ADICIONA A FUNCIONALIDADE DE CLIQUE AO BOTÃO DE LIMPEZA
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = ''; // Limpa o campo
+            searchResultsContainer.innerHTML = ''; // Limpa os resultados
+            searchInput.focus(); // Foca no campo de busca novamente
+        });
+
+        micBtn.addEventListener('click', handleVoiceSearch);
+        clearAllBtn.addEventListener('click', clearAllStudents);
+    </script>
+</body>
+</html>

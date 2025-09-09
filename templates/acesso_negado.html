@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Acesso Negado</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="login-container">
+        <h1>Acesso Negado</h1>
+        <p class="lead">Você precisa usar uma conta de e-mail do domínio @colegiocarbonell.com.br para acessar este sistema.</p>
+        <a href="{{ url_for('login') }}" class="google-login-button">Tentar Novamente</a>
+    </div>
+</body>
+</html>

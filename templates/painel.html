@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Chamada - Colégio Carbonell</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        /* 1. ESTRUTURA DA GRADE (COM MARGENS OTIMIZADAS) */
+        html, body.panel-page { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+        
+        .display-container { 
+            height: 100%; 
+            width: 100%; 
+            /* Reduzido o padding para aproximar a grade das bordas */
+            padding: 10px; 
+            box-sizing: border-box; 
+        }
+        
+        #student-grid {
+            display: grid; 
+            height: 100%; 
+            width: 100%; 
+            /* Reduzido o gap para aproximar os cards entre si */
+            gap: 10px;
+            grid-template-columns: repeat(5, 1fr) !important;
+            /* Recalcula a altura das linhas considerando o novo gap */
+            grid-template-rows: repeat(2, calc((100% - 10px) / 2)) !important;
+        }
+
+        /* 2. CONTEÚDO DENTRO DO CARD (VERSÃO FINAL AMPLIADA) */
+        .student-card {
+            padding: 1vh !important;
+            justify-content: center !important;
+        }
+        
+        .student-photo-large {
+            /* Voltamos a um tamanho grande para a foto, pois agora temos espaço */
+            width: 18vh !important;   
+            height: 18vh !important;  
+            margin-bottom: 0.5vh !important;
+            max-width: none !important;
+            flex-shrink: 1 !important;
+        }
+
+        .student-card-name {
+            /* Usamos a fonte maior novamente */
+            font-size: 2.8vh !important; 
+            line-height: 1.15 !important;
+        }
+        
+        .student-card-class {
+            font-size: 2.2vh !important;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        #activation-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(43, 58, 108, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; color: white; text-align: center; }
+        #activation-overlay h2 { font-size: 2.5rem; }
+        #activation-overlay p { font-size: 1.2rem; margin-top: 0; }
+        #activate-btn { padding: 15px 30px; font-size: 1.2rem; font-weight: bold; color: var(--carbonell-azul-marinho); background-color: var(--carbonell-amarelo); border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; }
+        .student-card { animation: card-enter 0.5s ease-out forwards; }
+        @keyframes card-enter { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes card-exit { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.8); } }
+        .exiting { animation: card-exit 0.5s ease-in forwards; }
+    </style>
+</head>
+<body class="terminal-body panel-page">
+
+    <div id="activation-overlay">
+        <h2>Painel de Chamada</h2>
+        <p>Clique no botão abaixo para iniciar o monitoramento e ativar as notificações sonoras.</p>
+        <button id="activate-btn">Ativar Painel</button>
+    </div>
+
+    <div class="container display-container">
+        <main id="student-grid"></main>
+    </div>
+
+    <audio id="notification-sound" src="{{ url_for('static', filename='sound/notification.mp3') }}" preload="auto"></audio>
+
+    <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
+    <script type="module">
+        import { db } from '/static/firebase-config.js';
+        import { collection, query, orderBy, onSnapshot, getDocs, deleteDoc, doc, where, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        const MAX_DISPLAY_COUNT = 10;
+        const TIMEOUT_MINUTES = 10;
+        
+        const studentGrid = document.getElementById('student-grid');
+        const chamadosCollection = collection(db, "chamados");
+        const notificationSound = document.getElementById('notification-sound');
+        
+        const activationOverlay = document.getElementById('activation-overlay');
+        const activateBtn = document.getElementById('activate-btn');
+
+        function startMonitoring() {
+            activationOverlay.style.display = 'none';
+            const emptyStateHTML = `<div class="empty-state"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo-empty"><h2>Aguardando chamada...</h2></div>`;
+            studentGrid.innerHTML = emptyStateHTML;
+            
+            const q = query(chamadosCollection, orderBy("timestamp", "desc"));
+            onSnapshot(q, (querySnapshot) => {
+                if (querySnapshot.size > MAX_DISPLAY_COUNT) {
+                    const oldestDocs = querySnapshot.docs.slice(MAX_DISPLAY_COUNT);
+                    oldestDocs.forEach(doc => deleteStudent(doc.id));
+                }
+                querySnapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        if (studentGrid.querySelector('.empty-state')) { studentGrid.innerHTML = ''; }
+                        const student = change.doc.data();
+                        const studentCard = document.createElement('div');
+                        studentCard.className = 'student-card';
+                        studentCard.id = `card-${change.doc.id}`;
+                        studentCard.innerHTML = `<img src="${student.fotoUrl}" alt="Foto de ${student.nomeCompleto}" class="student-photo-large"><div class="student-card-info"><span class="student-card-name">${student.nomeCompleto}</span><span class="student-card-class">${student.turma}</span></div>`;
+                        studentGrid.insertBefore(studentCard, studentGrid.firstChild);
+                        notificationSound.play().catch(e => console.warn("A reprodução do som falhou.", e));
+                    }
+                    if (change.type === "removed") {
+                        const cardToRemove = document.getElementById(`card-${change.doc.id}`);
+                        if (cardToRemove) {
+                            cardToRemove.classList.add('exiting');
+                            cardToRemove.addEventListener('animationend', () => {
+                                cardToRemove.remove();
+                                if (studentGrid.children.length === 0) { studentGrid.innerHTML = emptyStateHTML; }
+                            });
+                        }
+                    }
+                });
+            });
+        }
+
+        const deleteStudent = async (studentId) => {
+            try { await deleteDoc(doc(db, "chamados", studentId)); } 
+            catch (error) { console.error("Erro ao deletar aluno: ", error); }
+        };
+        
+        function enterFullScreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) { elem.requestFullscreen(); } 
+            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } 
+            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
+        }
+
+        let wakeLock = null;
+
+        const requestWakeLock = async () => {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock ativado. A tela não será desligada.');
+                    wakeLock.addEventListener('release', () => { console.log('Wake Lock foi liberado.'); });
+                } catch (err) { console.error(`${err.name}, ${err.message}`); }
+            } else { console.warn('API Wake Lock não é suportada.'); }
+        };
+
+        activateBtn.addEventListener('click', () => {
+            startMonitoring();
+            requestWakeLock();
+            enterFullScreen();
+        });
+
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+        
+        setInterval(async () => {
+            const timeoutThreshold = new Date(Date.now() - TIMEOUT_MINUTES * 60 * 1000);
+            const firestoreTimestamp = Timestamp.fromDate(timeoutThreshold);
+            const timeoutQuery = query(chamadosCollection, where("timestamp", "<=", firestoreTimestamp));
+            try {
+                const timedOutDocs = await getDocs(timeoutQuery);
+                timedOutDocs.forEach(timedOutDoc => { deleteStudent(timedOutDoc.id); });
+            } catch (error) { console.error("Erro ao verificar timeouts: ", error); }
+        }, 30000);
+    </script>
+</body>
+</html>

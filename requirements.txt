@@ -1,0 +1,10 @@
+# requirements.txt
+Flask
+Flask-Cors
+requests
+python-dotenv
+firebase-admin
+gunicorn
+Authlib
+Flask-SQLAlchemy
+SQLAlchemy
