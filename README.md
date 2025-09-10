@@ -77,17 +77,26 @@ Siga os passos abaixo para configurar e rodar o projeto em um ambiente de desenv
 2.  Nas configurações do projeto, na aba "Geral", adicione um novo aplicativo Web.
 3.  O Firebase fornecerá um objeto de configuração `firebaseConfig`.
 4.  Abra o arquivo `static/firebase-config.js`.
-5.  **Substitua o valor da `apiKey`** no objeto `firebaseConfig` pela chave de API fornecida pelo Firebase. As outras chaves geralmente já vêm pré-configuradas corretamente.
+5.  **Substitua todos os valores de exemplo** no objeto `firebaseConfig` pelos valores fornecidos pelo seu projeto Firebase.
+6.  **Atualize as URLs de importação** para a versão do SDK do Firebase que você deseja usar (ex: 9.6.10).
 
     ```javascript
     // static/firebase-config.js
+
+    // Importa as funções necessárias do Firebase SDK a partir de uma URL de exemplo.
+    // Substitua pela URL da versão do SDK do Firebase que você deseja usar.
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/X.Y.Z/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/X.Y.Z/firebase-firestore.js";
+
+    // Objeto de configuração do Firebase para este projeto web.
+    // IMPORTANTE: Substitua os valores abaixo pelos dados do seu projeto Firebase.
     const firebaseConfig = {
-        apiKey: "SUA_API_KEY_DO_FIREBASE", // <-- COLOQUE SUA CHAVE AQUI
-        authDomain: "chamada-visual-carbonell.firebaseapp.com",
-        projectId: "chamada-visual-carbonell",
-        storageBucket: "chamada-visual-carbonell.appspot.com",
-        messagingSenderId: "230654155076",
-        appId: "1:230654155076:web:8d37de62797f65d2265f11"
+        apiKey: "SUA_API_KEY",
+        authDomain: "SEU_PROJECT_ID.firebaseapp.com",
+        projectId: "SEU_PROJECT_ID",
+        storageBucket: "SEU_PROJECT_ID.appspot.com",
+        messagingSenderId: "SEU_MESSAGING_SENDER_ID",
+        appId: "SEU_APP_ID"
     };
     ```
 
