@@ -97,10 +97,13 @@
         const searchBtn = document.getElementById('search-btn');
         const grupoFilterContainer = document.getElementById('grupo-filter');
         const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
-        
-        // CÓDIGO PARA O NOVO BOTÃO
         const clearSearchBtn = document.getElementById('clear-search-btn');
 
+        /**
+         * Exibe os resultados da busca de alunos na interface.
+         * @param {Array<Object>} students - Uma lista de objetos de alunos para exibir.
+         * Cada objeto de aluno deve ter as propriedades: id, nomeCompleto, turma, fotoUrl.
+         */
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
             if (students.length === 0) {
@@ -144,6 +147,10 @@
             });
         };
 
+        /**
+         * Busca alunos na API do backend com base no termo de pesquisa e filtro de grupo.
+         * @param {string} searchTerm - O nome ou parte do nome do aluno a ser buscado.
+         */
         const fetchStudents = async (searchTerm) => {
             const cleanedSearchTerm = searchTerm.trim();
             if (cleanedSearchTerm.length < 2) {
@@ -170,6 +177,11 @@
             }
         };
 
+        /**
+         * Envia os dados de um aluno para o Firestore para "chamá-lo" no painel.
+         * @param {Object} studentData - Os dados do aluno a ser chamado.
+         * @param {HTMLElement} buttonElement - O elemento do botão que acionou a chamada.
+         */
         const callStudent = async (studentData, buttonElement) => {
             buttonElement.textContent = "Chamando...";
             buttonElement.disabled = true;
@@ -185,6 +197,10 @@
             }
         };
 
+        /**
+         * Limpa todos os alunos do painel (coleção 'chamados' no Firestore).
+         * Pede confirmação ao usuário antes de executar a ação.
+         */
         const clearAllStudents = async () => {
             if (!confirm("Tem certeza que deseja limpar todos os alunos do painel?")) return;
             clearAllBtn.textContent = "Limpando...";
@@ -204,6 +220,10 @@
             }
         };
 
+        /**
+         * Inicia o reconhecimento de voz para buscar um aluno.
+         * Usa a API de Reconhecimento de Fala do navegador.
+         */
         const handleVoiceSearch = () => {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -227,12 +247,11 @@
             event.preventDefault();
             fetchStudents(searchInput.value);
         });
-        
-        // ADICIONA A FUNCIONALIDADE DE CLIQUE AO BOTÃO DE LIMPEZA
+
         clearSearchBtn.addEventListener('click', () => {
-            searchInput.value = ''; // Limpa o campo
-            searchResultsContainer.innerHTML = ''; // Limpa os resultados
-            searchInput.focus(); // Foca no campo de busca novamente
+            searchInput.value = '';
+            searchResultsContainer.innerHTML = '';
+            searchInput.focus();
         });
 
         micBtn.addEventListener('click', handleVoiceSearch);

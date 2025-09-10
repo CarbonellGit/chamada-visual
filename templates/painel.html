@@ -9,19 +9,19 @@
     <style>
         /* 1. ESTRUTURA DA GRADE (COM MARGENS OTIMIZADAS) */
         html, body.panel-page { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
-        
-        .display-container { 
-            height: 100%; 
-            width: 100%; 
+
+        .display-container {
+            height: 100%;
+            width: 100%;
             /* Reduzido o padding para aproximar a grade das bordas */
-            padding: 10px; 
-            box-sizing: border-box; 
+            padding: 10px;
+            box-sizing: border-box;
         }
-        
+
         #student-grid {
-            display: grid; 
-            height: 100%; 
-            width: 100%; 
+            display: grid;
+            height: 100%;
+            width: 100%;
             /* Reduzido o gap para aproximar os cards entre si */
             gap: 10px;
             grid-template-columns: repeat(5, 1fr) !important;
@@ -34,11 +34,11 @@
             padding: 1vh !important;
             justify-content: center !important;
         }
-        
+
         .student-photo-large {
             /* Voltamos a um tamanho grande para a foto, pois agora temos espaço */
-            width: 18vh !important;   
-            height: 18vh !important;  
+            width: 18vh !important;
+            height: 18vh !important;
             margin-bottom: 0.5vh !important;
             max-width: none !important;
             flex-shrink: 1 !important;
@@ -46,10 +46,10 @@
 
         .student-card-name {
             /* Usamos a fonte maior novamente */
-            font-size: 2.8vh !important; 
+            font-size: 2.8vh !important;
             line-height: 1.15 !important;
         }
-        
+
         .student-card-class {
             font-size: 2.2vh !important;
         }
@@ -89,19 +89,24 @@
 
         const MAX_DISPLAY_COUNT = 10;
         const TIMEOUT_MINUTES = 10;
-        
+
         const studentGrid = document.getElementById('student-grid');
         const chamadosCollection = collection(db, "chamados");
         const notificationSound = document.getElementById('notification-sound');
-        
+
         const activationOverlay = document.getElementById('activation-overlay');
         const activateBtn = document.getElementById('activate-btn');
 
+        /**
+         * Inicia o monitoramento em tempo real da coleção 'chamados' no Firestore.
+         * Configura um listener (onSnapshot) que atualiza a grade de alunos
+         * sempre que um aluno é adicionado ou removido.
+         */
         function startMonitoring() {
             activationOverlay.style.display = 'none';
             const emptyStateHTML = `<div class="empty-state"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo-empty"><h2>Aguardando chamada...</h2></div>`;
             studentGrid.innerHTML = emptyStateHTML;
-            
+
             const q = query(chamadosCollection, orderBy("timestamp", "desc"));
             onSnapshot(q, (querySnapshot) => {
                 if (querySnapshot.size > MAX_DISPLAY_COUNT) {
@@ -133,20 +138,32 @@
             });
         }
 
+        /**
+         * Deleta um aluno específico da coleção 'chamados' no Firestore.
+         * @param {string} studentId - O ID do documento do aluno a ser deletado.
+         */
         const deleteStudent = async (studentId) => {
-            try { await deleteDoc(doc(db, "chamados", studentId)); } 
+            try { await deleteDoc(doc(db, "chamados", studentId)); }
             catch (error) { console.error("Erro ao deletar aluno: ", error); }
         };
-        
+
+        /**
+         * Tenta colocar a página em modo de tela cheia.
+         * Compatível com diferentes navegadores.
+         */
         function enterFullScreen() {
             const elem = document.documentElement;
-            if (elem.requestFullscreen) { elem.requestFullscreen(); } 
-            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } 
+            if (elem.requestFullscreen) { elem.requestFullscreen(); }
+            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); }
             else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
         }
 
         let wakeLock = null;
 
+        /**
+         * Solicita um 'Wake Lock' para impedir que a tela do dispositivo seja desligada.
+         * Útil para painéis de exibição que precisam permanecer ativos.
+         */
         const requestWakeLock = async () => {
             if ('wakeLock' in navigator) {
                 try {
@@ -168,7 +185,8 @@
                 await requestWakeLock();
             }
         });
-        
+
+        // Define um intervalo para verificar e remover alunos antigos (timeout)
         setInterval(async () => {
             const timeoutThreshold = new Date(Date.now() - TIMEOUT_MINUTES * 60 * 1000);
             const firestoreTimestamp = Timestamp.fromDate(timeoutThreshold);
