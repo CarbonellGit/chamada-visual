@@ -1,6 +1,10 @@
+import logging
 from flask import Blueprint, request, jsonify, session
 from app.services import sophia, firestore
 from functools import wraps
+
+# Configura Logger
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -25,7 +29,7 @@ def buscar_aluno():
         alunos = sophia.search_students(parte_nome, grupo)
         return jsonify(alunos)
     except Exception as e:
-        print(f"Erro na API de busca: {e}")
+        logger.error(f"Exceção não tratada na busca: {e}")
         return jsonify({"erro": "Erro interno ao buscar alunos"}), 500
 
 @bp.route('/chamar-aluno', methods=['POST'])
@@ -33,6 +37,7 @@ def buscar_aluno():
 def chamar_aluno():
     data = request.get_json()
     if not data:
+        logger.warning("Tentativa de chamada com dados inválidos.")
         return jsonify({"erro": "Dados inválidos"}), 400
         
     sucesso = firestore.call_student(data)
@@ -44,7 +49,6 @@ def chamar_aluno():
 @bp.route('/limpar-paineis', methods=['POST'])
 @login_required
 def limpar_paineis():
-    """Rota para limpar todos os painéis via Backend."""
     sucesso = firestore.clear_all_panels()
     if sucesso:
         return jsonify({"sucesso": True})

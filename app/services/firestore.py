@@ -1,25 +1,35 @@
+import logging
 from firebase_admin import firestore
+from flask import current_app
+
+# Configura o logger específico para este módulo
+logger = logging.getLogger(__name__)
 
 def get_db():
-    """Retorna o cliente do Firestore de forma segura."""
+    """
+    Retorna o cliente do Firestore.
+    Tenta pegar do contexto da aplicação (app.db) se disponível.
+    """
     try:
+        # Se estivermos dentro de um contexto de requisição Flask
+        if current_app:
+            return getattr(current_app, 'db', firestore.client())
         return firestore.client()
-    except ValueError:
+    except Exception as e:
+        logger.error(f"Erro ao obter cliente Firestore: {e}")
         return None
 
 def call_student(student_data):
     """
     Registra um aluno na coleção correta do Firestore.
-    Retorna True se sucesso, False caso contrário.
     """
     db = get_db()
     if not db:
-        print("Erro: Firestore não inicializado.")
+        logger.error("Tentativa de chamar aluno falhou: Firestore não inicializado.")
         return False
 
     turma = student_data.get("turma", "").strip().upper()
     
-    # Lógica de seleção de coleção baseada na turma
     collection_name = "chamados"
     if turma.startswith('EI'):
         collection_name = "chamados_ei"
@@ -27,19 +37,17 @@ def call_student(student_data):
         collection_name = "chamados_fund"
 
     try:
-        # Adiciona timestamp do servidor para consistência
         student_data['timestamp'] = firestore.SERVER_TIMESTAMP
         db.collection(collection_name).add(student_data)
-        print(f"Aluno {student_data.get('nomeCompleto')} adicionado em {collection_name}")
+        logger.info(f"Aluno {student_data.get('nomeCompleto')} adicionado com sucesso em {collection_name}")
         return True
     except Exception as e:
-        print(f"Erro ao salvar no Firestore: {e}")
+        logger.error(f"Erro ao salvar no Firestore: {e}")
         return False
 
 def clear_all_panels():
     """
     Remove todos os documentos das coleções de chamados.
-    Executado pelo backend (Admin SDK), ignorando regras de segurança do cliente.
     """
     db = get_db()
     if not db: return False
@@ -51,7 +59,8 @@ def clear_all_panels():
             docs = db.collection(coll_name).stream()
             for doc in docs:
                 doc.reference.delete()
+        logger.info("Todos os painéis foram limpos com sucesso.")
         return True
     except Exception as e:
-        print(f"Erro ao limpar painéis: {e}")
+        logger.error(f"Erro ao limpar painéis: {e}")
         return False
