@@ -35,3 +35,23 @@ def call_student(student_data):
     except Exception as e:
         print(f"Erro ao salvar no Firestore: {e}")
         return False
+
+def clear_all_panels():
+    """
+    Remove todos os documentos das coleções de chamados.
+    Executado pelo backend (Admin SDK), ignorando regras de segurança do cliente.
+    """
+    db = get_db()
+    if not db: return False
+
+    collections_to_clear = ["chamados", "chamados_ei", "chamados_fund"]
+    
+    try:
+        for coll_name in collections_to_clear:
+            docs = db.collection(coll_name).stream()
+            for doc in docs:
+                doc.reference.delete()
+        return True
+    except Exception as e:
+        print(f"Erro ao limpar painéis: {e}")
+        return False
