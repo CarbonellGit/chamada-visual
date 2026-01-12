@@ -26,6 +26,15 @@ class Config:
     if SOPHIA_API_HOSTNAME and SOPHIA_TENANT:
         SOPHIA_BASE_URL = f"https://{SOPHIA_API_HOSTNAME}/SophiAWebApi/{SOPHIA_TENANT}"
 
+    # --- REGRAS DE NEGÓCIO (Externalizadas) ---
+    # Define o prefixo de turmas que devem ser IGNORADAS na busca (ex: Ensino Médio)
+    # Se a escola mudar para "MEDIO", basta alterar aqui.
+    IGNORE_CLASS_PREFIX = os.getenv('IGNORE_CLASS_PREFIX', 'EM')
+    
+    # Regex para extrair o ano da descrição da turma (ex: "Turma 2025")
+    # Captura 4 dígitos consecutivos
+    REGEX_CLASS_YEAR = r'(\d{4})'
+
 class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False

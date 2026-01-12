@@ -42,7 +42,6 @@ def get_sophia_token():
             doc = doc_ref.get()
             if doc.exists:
                 data = doc.to_dict()
-                # Verifica se o token ainda é válido (com margem de segurança de 30s)
                 if time.time() < data.get('expires_at', 0) - 30:
                     return data.get('token')
         except Exception as e:
@@ -64,10 +63,8 @@ def get_sophia_token():
             response.raise_for_status()
             
             new_token = response.text.strip()
-            # O token do Sophia dura 30 minutos, renovamos com folga
             expires_at = time.time() + (29 * 60)
             
-            # 3. Salva o novo token no Firestore
             doc_ref.set({
                 'token': new_token,
                 'expires_at': expires_at,
@@ -95,21 +92,30 @@ def fetch_photo(aluno_id, headers, base_url):
 
 def search_students(parte_nome, grupo_filtro):
     """
-    Realiza a busca de alunos aplicando regras de negócio.
+    Realiza a busca de alunos aplicando regras de negócio externalizadas e otimização de loop.
     """
     token = get_sophia_token()
     if not token:
-        # Retorna lista vazia ou levanta erro, dependendo da estratégia de UI.
-        # Aqui, logamos e retornamos vazio para não quebrar o frontend.
         print("Abortando busca: Falha na autenticação com Sophia.")
         return []
 
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
     
+    # Preparação das regras de negócio (lendo do Config)
+    ano_vigente = datetime.now().year
+    prefixo_ignorado = current_app.config.get('IGNORE_CLASS_PREFIX', 'EM').upper()
+    regex_ano = current_app.config.get('REGEX_CLASS_YEAR', r'(\d{4})')
+    
+    # Parâmetros de busca
+    # TODO: Consultar documentação do Sophia para ver se suportam filtros como:
+    # 'AnoLetivo': ano_vigente, 'StatusMatricula': 'Ativo'
+    # Isso reduziria drasticamente a carga de dados transferidos.
+    params = {"Nome": parte_nome}
+
     try:
         # Busca na API
-        resp = requests.get(f"{base_url}/api/v1/alunos", headers=headers, params={"Nome": parte_nome}, timeout=15)
+        resp = requests.get(f"{base_url}/api/v1/alunos", headers=headers, params=params, timeout=15)
         resp.raise_for_status()
         raw_students = resp.json()
     except Exception as e:
@@ -117,40 +123,44 @@ def search_students(parte_nome, grupo_filtro):
         return []
 
     # Processamento e Filtragem
-    ano_vigente = datetime.now().year
     termos_busca = normalize_text(parte_nome).split()
     alunos_filtrados = {}
 
     for aluno in raw_students:
+        # 1. Fail Fast: Se não tem código, pula
         codigo = aluno.get("codigo")
         if not codigo or codigo in alunos_filtrados: continue
 
-        # Validação de Turma
+        # 2. Validação de Turma (Essencial)
         turmas = aluno.get("turmas", [])
         if not turmas: continue
         turma_desc = turmas[0].get("descricao", "")
+        turma_upper = turma_desc.upper()
+
+        # 3. Filtro de Prefixo Ignorado (Ex: EM/Ensino Médio) - Externalizado
+        if prefixo_ignorado and turma_upper.startswith(prefixo_ignorado):
+            continue
+
+        # 4. Filtro de Grupo (EI, AI, AF)
+        if grupo_filtro != 'TODOS' and grupo_filtro not in turma_upper:
+            continue
+
+        # 5. Filtro de Ano (Regex Externalizado)
+        match_ano = re.search(regex_ano, turma_desc)
+        if match_ano:
+            ano_turma = int(match_ano.group(1))
+            if ano_turma < ano_vigente:
+                continue
         
-        # Filtro de Ano (Ex: remove formados em 2024 se estamos em 2025)
-        match_ano = re.search(r'(\d{4})', turma_desc)
-        if match_ano and int(match_ano.group(1)) < ano_vigente:
-            continue
-
-        # Filtro de Ensino Médio
-        if turma_desc.upper().startswith('EM'):
-            continue
-
-        # Filtro de Grupo (EI, AI, AF)
-        if grupo_filtro != 'TODOS' and grupo_filtro not in turma_desc.upper():
-            continue
-
-        # Match do Nome
+        # 6. Match do Nome (Normalização)
+        # Só gastamos CPU normalizando string se passou por todos os filtros numéricos/booleanos acima
         nome_norm = normalize_text(aluno.get("nome"))
         if all(t in nome_norm for t in termos_busca):
             alunos_filtrados[codigo] = {
                 "id": codigo,
                 "nomeCompleto": aluno.get("nome", "Nome Desconhecido"),
                 "turma": turma_desc,
-                "fotoUrl": None # Será preenchido depois
+                "fotoUrl": None
             }
 
     # Busca de fotos em paralelo
