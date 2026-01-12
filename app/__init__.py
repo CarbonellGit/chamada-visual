@@ -47,9 +47,11 @@ def create_app(config_name='default'):
         client_kwargs={'scope': 'openid email profile'}
     )
 
-    # AQUI registraremos as rotas (Blueprints) posteriormente
-    # from .routes import main, auth, api
-    # app.register_blueprint(main.bp)
-    # ...
+   # --- REGISTRO DE BLUEPRINTS (Adicione isso no final da função create_app) ---
+    from .routes import main, auth, api
+    
+    app.register_blueprint(auth.bp)
+    app.register_blueprint(main.bp)
+    app.register_blueprint(api.bp)
 
     return app
