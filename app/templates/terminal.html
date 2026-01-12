@@ -10,11 +10,39 @@
         /* Estilos dos filtros (sem alterações)
            Comentários aqui apenas descrevem a finalidade visual das classes CSS.
            Não alteramos regras CSS existentes — apenas documentamos. */
-        .filter-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .filter-btn { display: inline-block; }
-        .filter-btn input[type="radio"] { display: none; }
-        .filter-btn label { padding: 10px 20px; font-size: 0.9em; font-weight: bold; background-color: var(--carbonell-azul-escuro); color: var(--carbonell-branco); border: 2px solid var(--carbonell-azul-escuro); border-radius: 8px; cursor: pointer; transition: all 0.3s ease; }
-        .filter-btn input[type="radio"]:checked+label { background-color: var(--carbonell-amarelo); color: var(--carbonell-azul-marinho); border-color: var(--carbonell-amarelo); }
+        .filter-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            display: inline-block;
+        }
+
+        .filter-btn input[type="radio"] {
+            display: none;
+        }
+
+        .filter-btn label {
+            padding: 10px 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            background-color: var(--carbonell-azul-escuro);
+            color: var(--carbonell-branco);
+            border: 2px solid var(--carbonell-azul-escuro);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn input[type="radio"]:checked+label {
+            background-color: var(--carbonell-amarelo);
+            color: var(--carbonell-azul-marinho);
+            border-color: var(--carbonell-amarelo);
+        }
 
         /* --- NOVOS ESTILOS: MODAL DE CONFIRMAÇÃO --- */
         /* Documentação: Estes estilos criam a aparência do modal de confirmação usado na
@@ -23,16 +51,20 @@
 
         /* A sobreposição escura que cobre a tela inteira */
         .modal-overlay {
-            position: fixed; /* Mantém o overlay fixo mesmo com rolagem */
+            position: fixed;
+            /* Mantém o overlay fixo mesmo com rolagem */
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.6); /* Fundo preto semitransparente */
-            display: none; /* Inicia escondido; visível quando display='flex' */
+            background-color: rgba(0, 0, 0, 0.6);
+            /* Fundo preto semitransparente */
+            display: none;
+            /* Inicia escondido; visível quando display='flex' */
             justify-content: center;
             align-items: center;
-            z-index: 2000; /* Deve ficar acima de outros elementos da UI */
+            z-index: 2000;
+            /* Deve ficar acima de outros elementos da UI */
         }
 
         /* A caixa de diálogo do modal */
@@ -47,15 +79,19 @@
             width: 90%;
         }
 
-        .modal-content h2 { margin-top: 0; }
+        .modal-content h2 {
+            margin-top: 0;
+        }
 
         /* Container para os botões de ação dentro do modal */
         .modal-actions {
             margin-top: 20px;
             display: flex;
             justify-content: center;
-            gap: 15px; /* Espaçamento entre os botões */
+            gap: 15px;
+            /* Espaçamento entre os botões */
         }
+
         /* --- FIM DOS NOVOS ESTILOS --- */
     </style>
 </head>
@@ -74,7 +110,7 @@
                 <div class="user-info">
                     <!-- Exibe o nome do usuário logado (obtido pela sessão Flask) -->
                     <span>Logado como: {{ session['user']['name'] }}</span>
-                    <a href="{{ url_for('logout') }}" class="logout-button">Sair</a>
+                    <a href="{{ url_for('auth.logout') }}" class="logout-button">Sair</a>
                 </div>
             </div>
         </header>
@@ -82,19 +118,24 @@
         <main>
             <!-- Filtros por grupo (Todos / Ed. Infantil / Anos Iniciais / Anos Finais) -->
             <div class="filter-container" id="grupo-filter">
-                <div class="filter-btn"><input type="radio" id="filter-todos" name="grupo" value="todos" checked><label for="filter-todos">Todos</label></div>
-                <div class="filter-btn"><input type="radio" id="filter-ei" name="grupo" value="EI"><label for="filter-ei">Ed. Infantil</label></div>
-                <div class="filter-btn"><input type="radio" id="filter-ai" name="grupo" value="AI"><label for="filter-ai">Anos Iniciais</label></div>
-                <div class="filter-btn"><input type="radio" id="filter-af" name="grupo" value="AF"><label for="filter-af">Anos Finais</label></div>
+                <div class="filter-btn"><input type="radio" id="filter-todos" name="grupo" value="todos" checked><label
+                        for="filter-todos">Todos</label></div>
+                <div class="filter-btn"><input type="radio" id="filter-ei" name="grupo" value="EI"><label
+                        for="filter-ei">Ed. Infantil</label></div>
+                <div class="filter-btn"><input type="radio" id="filter-ai" name="grupo" value="AI"><label
+                        for="filter-ai">Anos Iniciais</label></div>
+                <div class="filter-btn"><input type="radio" id="filter-af" name="grupo" value="AF"><label
+                        for="filter-af">Anos Finais</label></div>
             </div>
 
             <!-- Barra de busca: campo de texto, botão limpar, botão buscar e microfone para busca por voz -->
             <form class="search-bar" id="search-form">
-                <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar..." autocomplete="off">
+                <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar..."
+                    autocomplete="off">
                 <button type="button" class="btn" id="clear-search-btn" aria-label="Limpar campo de busca">🗑️</button>
                 <button type="submit" class="btn" id="search-btn">Buscar</button>
                 <button type="button" class="btn" id="mic-btn" aria-label="Iniciar busca por voz">🎤</button>
-                </form>
+            </form>
             <div id="search-results"></div> <!-- Container onde os resultados da busca serão renderizados -->
         </main>
     </div>
@@ -103,7 +144,8 @@
     <div id="confirmation-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Confirmar Ação</h2>
-            <p>Tem certeza que deseja limpar TODOS os painéis (Infantil e Fundamental)? Esta ação não pode ser desfeita.</p>
+            <p>Tem certeza que deseja limpar TODOS os painéis (Infantil e Fundamental)? Esta ação não pode ser desfeita.
+            </p>
             <div class="modal-actions">
                 <button id="modal-cancel-btn" class="btn">Cancelar</button>
                 <button id="modal-confirm-btn" class="btn btn-danger">Confirmar Limpeza</button>
@@ -231,7 +273,7 @@
                 searchBtn.textContent = 'Buscar';
             }
         };
-        
+
         /**
          * callStudent(studentData, buttonElement)
          * - Propósito: enviar requisição ao backend para "chamar" o aluno (registro de chamado)
@@ -364,4 +406,5 @@
         // --- FIM DA LÓGICA ---
     </script>
 </body>
+
 </html>

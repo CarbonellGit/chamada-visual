@@ -1,45 +1,48 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Chamada Visual</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
     {# --- Início do Bloco de Comentário Jinja2 Corrigido ---
-        Container principal da tela de login.
-        Estrutura simples, sem formulários locais, pois a autenticação é delegada ao
-        provedor Google via rota Flask 'login_google'.
+    Container principal da tela de login.
+    Estrutura simples, sem formulários locais, pois a autenticação é delegada ao
+    provedor Google via rota Flask 'login_google'.
 
-        Observações gerais:
-        - Este template usa a sintaxe Jinja2 (chaves {{ }} e blocos {% %}) compatível com Flask.
-        - Não há lógica de backend aqui além da exibição de mensagens flash e dos links.
+    Observações gerais:
+    - Este template usa a sintaxe Jinja2 (chaves {{ }} e blocos {% %}) compatível com Flask.
+    - Não há lógica de backend aqui além da exibição de mensagens flash e dos links.
     --- Fim do Bloco de Comentário Jinja2 --- #}
     <div class="login-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    {# --- Início do Bloco de Comentário Jinja2 Corrigido ---
-                        Cada mensagem flash é envolta em uma div com duas classes:
-                        'flash-message' para estilo geral e 'flash-{{ category }}' para
-                        permitir estilos por categoria (ex: cores diferentes para erros).
-                    --- Fim do Bloco de Comentário Jinja2 --- #}
-                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        {# --- Início do Bloco de Comentário Jinja2 Corrigido ---
+        Cada mensagem flash é envolta em uma div com duas classes:
+        'flash-message' para estilo geral e 'flash-{{ category }}' para
+        permitir estilos por categoria (ex: cores diferentes para erros).
+        --- Fim do Bloco de Comentário Jinja2 --- #}
+        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         <div class="login-logo-container">
             <img src="{{ url_for('static', filename='img/logo2.png') }}" alt="Logo Colégio Carbonell">
-            </div>
+        </div>
         <h1>Chamada Visual</h1>
         <p>Por favor, utilize sua conta do Colégio Carbonell para continuar.</p>
 
-        <a href="{{ url_for('login_google') }}" class="google-login-button">
+        <a href="{{ url_for('auth.login_google') }}" class="google-login-button">
             <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
             Entrar com Google
         </a>
     </div>
 </body>
+
 </html>
