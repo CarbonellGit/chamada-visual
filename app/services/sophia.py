@@ -62,9 +62,11 @@ def get_sophia_token():
             print(f"Erro ao obter token Sophia: {e}")
             return None
 
-def fetch_photo(aluno_id, headers):
-    """Busca foto do aluno. Função auxiliar para execução paralela."""
-    base_url = current_app.config.get('SOPHIA_BASE_URL')
+def fetch_photo(aluno_id, headers, base_url):
+    """
+    Busca foto do aluno. Função auxiliar para execução paralela.
+    Recebe base_url como argumento para evitar erro de contexto fora da thread principal.
+    """
     try:
         url = f"{base_url}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
         resp = requests.get(url, headers=headers, timeout=5)
@@ -87,6 +89,7 @@ def search_students(parte_nome, grupo_filtro):
     if not token:
         raise ConnectionError("Falha na autenticação com Sophia")
 
+    # Extraímos a URL aqui, dentro do contexto da aplicação (Thread Principal)
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
     
@@ -127,7 +130,7 @@ def search_students(parte_nome, grupo_filtro):
         if all(t in nome_norm for t in termos_busca):
             alunos_filtrados[codigo] = {
                 "id": codigo,
-                "nomeCompleto": aluno.get("nome"),
+                "nomeCompleto": aluno.get("nome", "Nome Desconhecido"),
                 "turma": turma_desc,
                 "fotoUrl": None # Será preenchido depois
             }
@@ -135,7 +138,8 @@ def search_students(parte_nome, grupo_filtro):
     # Busca de fotos em paralelo (Otimização de performance)
     if alunos_filtrados:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(fetch_photo, aid, headers): aid for aid in alunos_filtrados}
+            # Passamos 'base_url' explicitamente para a função da thread
+            futures = {executor.submit(fetch_photo, aid, headers, base_url): aid for aid in alunos_filtrados}
             for future in concurrent.futures.as_completed(futures):
                 aid, foto = future.result()
                 if foto:

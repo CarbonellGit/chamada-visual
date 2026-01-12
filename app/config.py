@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-# Carrega o .env explicitamente para garantir que as variáveis estejam disponíveis
+# Carrega o .env explicitamente
 load_dotenv()
 
 class Config:
@@ -20,12 +20,11 @@ class Config:
     SOPHIA_PASSWORD = os.getenv('SOPHIA_PASSWORD')
     SOPHIA_API_HOSTNAME = os.getenv('SOPHIA_API_HOSTNAME')
     
-    @property
-    def SOPHIA_BASE_URL(self):
-        """Propriedade dinâmica para montar a URL base apenas se configurado."""
-        if self.SOPHIA_API_HOSTNAME and self.SOPHIA_TENANT:
-            return f"https://{self.SOPHIA_API_HOSTNAME}/SophiAWebApi/{self.SOPHIA_TENANT}"
-        return None
+    # CORREÇÃO: Construção direta da variável (sem @property)
+    # Isso garante que o valor seja uma string (ou None) quando o Flask carregar
+    SOPHIA_BASE_URL = None
+    if SOPHIA_API_HOSTNAME and SOPHIA_TENANT:
+        SOPHIA_BASE_URL = f"https://{SOPHIA_API_HOSTNAME}/SophiAWebApi/{SOPHIA_TENANT}"
 
 class DevelopmentConfig(Config):
     DEBUG = True
