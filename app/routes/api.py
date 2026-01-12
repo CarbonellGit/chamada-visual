@@ -40,3 +40,13 @@ def chamar_aluno():
         return jsonify({"sucesso": True})
     else:
         return jsonify({"erro": "Falha ao registrar chamada"}), 500
+
+@bp.route('/limpar-paineis', methods=['POST'])
+@login_required
+def limpar_paineis():
+    """Rota para limpar todos os painéis via Backend."""
+    sucesso = firestore.clear_all_panels()
+    if sucesso:
+        return jsonify({"sucesso": True})
+    else:
+        return jsonify({"erro": "Falha ao limpar painéis"}), 500

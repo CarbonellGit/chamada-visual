@@ -133,7 +133,8 @@
     <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
     <script type="module">
         import { db } from '/static/firebase-config.js';
-        import { collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+        // Removemos deleteDoc e doc, pois o frontend não deleta mais nada!
+        import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
         const searchForm = document.getElementById('search-form');
         const searchInput = document.getElementById('search-input');
@@ -210,8 +211,6 @@
             buttonElement.textContent = "Chamando...";
             buttonElement.disabled = true;
 
-            // --- PROTEÇÃO CSRF ---
-            // Recupera o token da meta tag
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
             try {
@@ -219,7 +218,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken // Envia o token no cabeçalho
+                        'X-CSRFToken': csrfToken
                     },
                     body: JSON.stringify(studentData)
                 });
@@ -240,17 +239,24 @@
         const executeClearAll = async () => {
             clearAllBtn.textContent = "Limpando...";
             clearAllBtn.disabled = true;
-            const collectionsToClear = ["chamados", "chamados_ei", "chamados_fund"];
+
+            // --- MUDANÇA: Chamada ao Backend ---
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
             try {
-                const deletePromises = [];
-                for (const collName of collectionsToClear) {
-                    const snapshot = await getDocs(collection(db, collName));
-                    snapshot.docs.forEach(studentDoc => {
-                        deletePromises.push(deleteDoc(doc(db, collName, studentDoc.id)));
-                    });
+                const response = await fetch('/api/limpar-paineis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+
+                if (response.ok) {
+                    alert("Painéis limpos com sucesso!");
+                } else {
+                    throw new Error("Falha no servidor");
                 }
-                await Promise.all(deletePromises);
-                alert("Painéis limpos com sucesso!");
             } catch (error) {
                 console.error("Erro ao limpar os painéis: ", error);
                 alert("Ocorreu um erro ao tentar limpar os painéis.");
