@@ -4,12 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Terminal de Chamada - Colégio Carbonell</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        /* Estilos dos filtros (sem alterações)
-           Comentários aqui apenas descrevem a finalidade visual das classes CSS.
-           Não alteramos regras CSS existentes — apenas documentamos. */
+        /* Estilos mantidos (filtros e modal) */
         .filter-container {
             display: flex;
             justify-content: center;
@@ -44,30 +43,19 @@
             border-color: var(--carbonell-amarelo);
         }
 
-        /* --- NOVOS ESTILOS: MODAL DE CONFIRMAÇÃO --- */
-        /* Documentação: Estes estilos criam a aparência do modal de confirmação usado na
-           ação "Limpar Tudo". O modal é composto por uma sobreposição (overlay) que
-           cobre a tela inteira e uma caixa centralizada com conteúdo e botões. */
-
-        /* A sobreposição escura que cobre a tela inteira */
         .modal-overlay {
             position: fixed;
-            /* Mantém o overlay fixo mesmo com rolagem */
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.6);
-            /* Fundo preto semitransparente */
             display: none;
-            /* Inicia escondido; visível quando display='flex' */
             justify-content: center;
             align-items: center;
             z-index: 2000;
-            /* Deve ficar acima de outros elementos da UI */
         }
 
-        /* A caixa de diálogo do modal */
         .modal-content {
             background-color: var(--carbonell-branco);
             color: var(--carbonell-azul-marinho);
@@ -83,16 +71,12 @@
             margin-top: 0;
         }
 
-        /* Container para os botões de ação dentro do modal */
         .modal-actions {
             margin-top: 20px;
             display: flex;
             justify-content: center;
             gap: 15px;
-            /* Espaçamento entre os botões */
         }
-
-        /* --- FIM DOS NOVOS ESTILOS --- */
     </style>
 </head>
 
@@ -100,15 +84,12 @@
     <div class="container terminal-container">
         <header>
             <div class="header-left">
-                <!-- Logo da instituição e título da página -->
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo">
                 <h1>Terminal de Chamada</h1>
             </div>
             <div class="header-right">
-                <!-- Botão que aciona a limpeza de todos os painéis (abre modal de confirmação) -->
                 <button class="btn btn-danger" id="clear-all-btn">Limpar Tudo</button>
                 <div class="user-info">
-                    <!-- Exibe o nome do usuário logado (obtido pela sessão Flask) -->
                     <span>Logado como: {{ session['user']['name'] }}</span>
                     <a href="{{ url_for('auth.logout') }}" class="logout-button">Sair</a>
                 </div>
@@ -116,7 +97,6 @@
         </header>
 
         <main>
-            <!-- Filtros por grupo (Todos / Ed. Infantil / Anos Iniciais / Anos Finais) -->
             <div class="filter-container" id="grupo-filter">
                 <div class="filter-btn"><input type="radio" id="filter-todos" name="grupo" value="todos" checked><label
                         for="filter-todos">Todos</label></div>
@@ -128,7 +108,6 @@
                         for="filter-af">Anos Finais</label></div>
             </div>
 
-            <!-- Barra de busca: campo de texto, botão limpar, botão buscar e microfone para busca por voz -->
             <form class="search-bar" id="search-form">
                 <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar..."
                     autocomplete="off">
@@ -136,11 +115,10 @@
                 <button type="submit" class="btn" id="search-btn">Buscar</button>
                 <button type="button" class="btn" id="mic-btn" aria-label="Iniciar busca por voz">🎤</button>
             </form>
-            <div id="search-results"></div> <!-- Container onde os resultados da busca serão renderizados -->
+            <div id="search-results"></div>
         </main>
     </div>
 
-    <!-- Modal de confirmação para a ação 'Limpar Tudo' -->
     <div id="confirmation-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Confirmar Ação</h2>
@@ -154,47 +132,21 @@
     </div>
     <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
     <script type="module">
-        /*
-         * Script do terminal de chamada
-         * - Linguagem: JavaScript (ES modules)
-         * - Objetivo: fornecer interatividade para buscar alunos, chamar alunos e limpar painéis
-         * - Integração com Firebase Firestore para operações de leitura/exclusão (apenas leitura/exclusão neste arquivo)
-         *
-         * Observação: Não altere variáveis ou lógica; adicionamos apenas comentários explicativos.
-         */
         import { db } from '/static/firebase-config.js';
         import { collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-        // --- REFERÊNCIAS AOS ELEMENTOS HTML ---
-        // Cada constante armazena uma referência a um elemento do DOM usado no script.
-        const searchForm = document.getElementById('search-form'); // Form que contém campo de busca
-        const searchInput = document.getElementById('search-input'); // Campo de texto da busca
-        const micBtn = document.getElementById('mic-btn'); // Botão para iniciar busca por voz
-        const searchResultsContainer = document.getElementById('search-results'); // Onde os resultados serão exibidos
-        const clearAllBtn = document.getElementById('clear-all-btn'); // Botão que abre modal de confirmação para limpar
-        const searchBtn = document.getElementById('search-btn'); // Botão de submit da busca
-        const clearSearchBtn = document.getElementById('clear-search-btn'); // Botão para limpar input de busca
-        const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y"; // Avatar padrão caso foto não exista
-
-        // --- REFERÊNCIAS DO MODAL ---
-        // Elementos que compõem o modal de confirmação usado antes de executar a ação destrutiva
+        const searchForm = document.getElementById('search-form');
+        const searchInput = document.getElementById('search-input');
+        const micBtn = document.getElementById('mic-btn');
+        const searchResultsContainer = document.getElementById('search-results');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const searchBtn = document.getElementById('search-btn');
+        const clearSearchBtn = document.getElementById('clear-search-btn');
+        const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
         const confirmationModal = document.getElementById('confirmation-modal');
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
-        /**
-         * displayResults(students)
-         * - Propósito: renderizar a lista de alunos retornada pela API de busca.
-         * - Parâmetros:
-         *    students: Array de objetos representando alunos. Cada objeto deve conter ao menos
-         *              { id, nomeCompleto, turma, fotoUrl? }.
-         * - Retorno: void (renderiza diretamente no DOM)
-         * - Observações:
-         *    - Caso nenhum aluno seja encontrado, exibe uma mensagem amigável.
-         *    - Para cada aluno é criado um bloco com foto, nome, turma e botão "Chamar".
-         *    - O botão "Chamar" chama a função callStudent com os dados necessários. Não altera
-         *      o objeto original, apenas cria um objeto reduzido (studentDataForCall).
-         */
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
             if (students.length === 0) {
@@ -205,7 +157,6 @@
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'student-result-item';
                 let photoSrc = defaultAvatar;
-                // Se o aluno possui foto, decide se já é dataURI ou se precisa montar base64
                 if (student.fotoUrl) {
                     photoSrc = student.fotoUrl.startsWith('data:image') ? student.fotoUrl : `data:image/jpeg;base64,${student.fotoUrl}`;
                 }
@@ -218,7 +169,6 @@
                     <button class="btn btn-action">Chamar</button>
                 `;
 
-                // Associa evento ao botão de chamar: cria um objeto com os campos esperados pela API
                 studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
                     const studentDataForCall = {
                         id: student.id,
@@ -226,107 +176,67 @@
                         turma: student.turma,
                         fotoUrl: photoSrc
                     };
-                    // Chama a função responsável por notificar o backend e atualizar UI local
                     callStudent(studentDataForCall, event.target);
                 });
                 searchResultsContainer.appendChild(studentDiv);
             });
         };
 
-        /**
-         * fetchStudents(searchTerm)
-         * - Propósito: consultar a API backend para buscar alunos por parte do nome.
-         * - Parâmetros:
-         *    searchTerm: string — termo de busca inserido pelo usuário.
-         * - Retorno: Promise<void> (realiza fetch e renderiza resultados via displayResults)
-         * - Validações/edge cases:
-         *    - Requer pelo menos 2 caracteres para evitar consultas inúteis ao servidor.
-         *    - Desabilita o botão de buscar enquanto a requisição está em andamento.
-         *    - Em caso de erro de rede ou resposta inválida, exibe mensagem de erro.
-         */
         const fetchStudents = async (searchTerm) => {
             const cleanedSearchTerm = searchTerm.trim();
             if (cleanedSearchTerm.length < 2) {
                 searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Digite pelo menos 2 letras para buscar.</p>';
                 return;
             }
-            // Lê o filtro de grupo atualmente selecionado (Todos/EI/AI/AF)
             const selectedGrupo = document.querySelector('input[name="grupo"]:checked').value;
-            searchBtn.disabled = true; // Previne múltiplos envios
+            searchBtn.disabled = true;
             searchBtn.textContent = 'Buscando...';
             searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Buscando...</p>';
             try {
-                // Monta a URL da API com encoding seguro dos parâmetros
                 const url = `/api/buscar-aluno?parteNome=${encodeURIComponent(cleanedSearchTerm)}&grupo=${selectedGrupo}`;
                 const response = await fetch(url);
                 const students = await response.json();
-                // Observação: assumimos que a API retorna um array JSON. Se retornar outro formato,
-                // pode ocorrer erro ao chamar displayResults.
                 displayResults(students);
             } catch (error) {
-                // Tratamento básico de erro: log no console e mensagem amigável ao usuário
                 console.error('Erro ao buscar alunos:', error);
                 searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Erro ao conectar com o servidor.</p>';
             } finally {
-                // Restaura o estado do botão independente do resultado
                 searchBtn.disabled = false;
                 searchBtn.textContent = 'Buscar';
             }
         };
 
-        /**
-         * callStudent(studentData, buttonElement)
-         * - Propósito: enviar requisição ao backend para "chamar" o aluno (registro de chamado)
-         * - Parâmetros:
-         *    studentData: objeto contendo pelo menos { id, nomeCompleto, turma, fotoUrl }
-         *    buttonElement: referência ao botão clicado para atualizar o estado visual do botão
-         * - Retorno: Promise<void>
-         * - Observações de erro:
-         *    - Se a requisição falhar por rede, atualiza o botão para indicar erro de rede.
-         *    - Se o servidor responder com código não-ok, exibe estado de erro no botão.
-         */
         const callStudent = async (studentData, buttonElement) => {
             buttonElement.textContent = "Chamando...";
             buttonElement.disabled = true;
+
+            // --- PROTEÇÃO CSRF ---
+            // Recupera o token da meta tag
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
             try {
                 const response = await fetch('/api/chamar-aluno', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken // Envia o token no cabeçalho
+                    },
                     body: JSON.stringify(studentData)
                 });
                 if (response.ok) {
-                    // Sucesso: feedback visual positivo
                     buttonElement.textContent = "Chamado!";
                     buttonElement.style.backgroundColor = '#5cb85c';
                 } else {
-                    // Resposta do servidor indica falha na operação
                     buttonElement.textContent = "Erro!";
                     buttonElement.style.backgroundColor = '#d9534f';
                 }
             } catch (error) {
-                // Erro de rede (ex: desconexão) — log e feedback ao usuário
                 console.error('Erro de rede ao chamar aluno:', error);
                 buttonElement.textContent = "Erro de Rede!";
                 buttonElement.style.backgroundColor = '#d9534f';
             }
         };
 
-        /**
-         * executeClearAll()
-         * - Propósito: remover todos os documentos das coleções relevantes no Firestore.
-         * - Sem parâmetros e retorna Promise<void>.
-         * - Fluxo:
-         *    1) Desabilita e atualiza o botão "Limpar Tudo" para informar progresso.
-         *    2) Faz leitura das coleções listadas em collectionsToClear e gera promessas de
-         *       exclusão para cada documento encontrado.
-         *    3) Aguarda Promise.all(deletePromises) para confirmar exclusões em paralelo.
-         *    4) Em caso de erro, loga no console e informa o usuário via alert().
-         * - Observações / riscos:
-         *    - Esta função realiza exclusões definitivas no Firestore — deve ser usada apenas
-         *      após confirmação do usuário.
-         *    - Pode haver limites de taxa (rate limits) ou regras de segurança no Firestore que
-         *      impeçam deleções em massa; esses erros são capturados no bloco catch.
-         */
         const executeClearAll = async () => {
             clearAllBtn.textContent = "Limpando...";
             clearAllBtn.disabled = true;
@@ -334,76 +244,55 @@
             try {
                 const deletePromises = [];
                 for (const collName of collectionsToClear) {
-                    // Lê todos os documentos da coleção
                     const snapshot = await getDocs(collection(db, collName));
                     snapshot.docs.forEach(studentDoc => {
-                        // Para cada documento, cria uma promessa de exclusão
                         deletePromises.push(deleteDoc(doc(db, collName, studentDoc.id)));
                     });
                 }
-                // Aguarda exclusão paralela de todos os documentos
                 await Promise.all(deletePromises);
-                // Feedback simples ao usuário; em produção, considerar um toast não bloqueante
                 alert("Painéis limpos com sucesso!");
             } catch (error) {
                 console.error("Erro ao limpar os painéis: ", error);
                 alert("Ocorreu um erro ao tentar limpar os painéis.");
             } finally {
-                // Restaura estado do botão independentemente do resultado
                 clearAllBtn.textContent = "Limpar Tudo";
                 clearAllBtn.disabled = false;
             }
         };
 
-        // Placeholder para a lógica de busca por voz. Comentário explica objetivo.
-        const handleVoiceSearch = () => { /* Função responsável por iniciar reconhecimento de voz e chamar fetchStudents com o termo reconhecido. */ };
+        const handleVoiceSearch = () => { };
 
-        // --- EVENT LISTENERS (OUVINTES DE EVENTOS) ---
-
-        // Evento de 'submit' do formulário (clicar em Buscar ou pressionar Enter)
         searchForm.addEventListener('submit', (event) => {
             event.preventDefault();
             fetchStudents(searchInput.value);
         });
 
-        // Evento do botão de limpar o campo de busca
         clearSearchBtn.addEventListener('click', () => {
-            // Limpa o input, limpa os resultados e move o foco de volta para o campo
             searchInput.value = '';
             searchResultsContainer.innerHTML = '';
             searchInput.focus();
         });
 
-        // Evento do botão de busca por voz (ainda não implementado integralmente nesta view)
         micBtn.addEventListener('click', handleVoiceSearch);
 
-        // --- LÓGICA DO MODAL DE CONFIRMAÇÃO ---
-        // Observação: em vez de executar a exclusão diretamente no clique do botão "Limpar Tudo",
-        // abrimos um modal para confirmar a ação (melhor prática para ações destrutivas).
-
-        // 1. Evento para ABRIR o modal
         clearAllBtn.addEventListener('click', () => {
-            confirmationModal.style.display = 'flex'; // Torna o modal visível (display flex usado nos estilos)
+            confirmationModal.style.display = 'flex';
         });
 
-        // 2. Evento para o botão de CANCELAR dentro do modal — apenas esconde o modal
         modalCancelBtn.addEventListener('click', () => {
             confirmationModal.style.display = 'none';
         });
 
-        // 3. Evento para o botão de CONFIRMAR dentro do modal — esconde o modal e executa a limpeza
         modalConfirmBtn.addEventListener('click', () => {
             confirmationModal.style.display = 'none';
-            executeClearAll(); // Aciona função que realiza exclusões no Firestore
+            executeClearAll();
         });
 
-        // Opcional: fechar o modal se o usuário clicar fora da caixa de diálogo
         window.addEventListener('click', (event) => {
             if (event.target === confirmationModal) {
                 confirmationModal.style.display = 'none';
             }
         });
-        // --- FIM DA LÓGICA ---
     </script>
 </body>
 
