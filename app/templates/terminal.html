@@ -8,7 +8,6 @@
     <title>Terminal de Chamada - Colégio Carbonell</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        /* Estilos mantidos (filtros e modal) */
         .filter-container {
             display: flex;
             justify-content: center;
@@ -81,6 +80,8 @@
 </head>
 
 <body class="terminal-body">
+    <div id="toast-container"></div>
+
     <div class="container terminal-container">
         <header>
             <div class="header-left">
@@ -130,11 +131,10 @@
             </div>
         </div>
     </div>
-    <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
+
     <script type="module">
-        import { db } from '/static/firebase-config.js';
-        // Removemos deleteDoc e doc, pois o frontend não deleta mais nada!
-        import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+        // Importações
+        // Nenhuma lógica de banco de dados no frontend necessária aqui, apenas chamadas de API
 
         const searchForm = document.getElementById('search-form');
         const searchInput = document.getElementById('search-input');
@@ -147,6 +147,33 @@
         const confirmationModal = document.getElementById('confirmation-modal');
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
+        const toastContainer = document.getElementById('toast-container');
+
+        // --- SISTEMA DE TOAST (UX) ---
+        const showToast = (message, type = 'info') => {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+
+            toastContainer.appendChild(toast);
+
+            // Remove o toast após 4 segundos
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                toast.addEventListener('animationend', () => toast.remove());
+            }, 4000);
+        };
+
+        const setLoading = (btn, isLoading, text = '') => {
+            if (isLoading) {
+                btn.disabled = true;
+                btn.dataset.originalText = btn.textContent;
+                btn.innerHTML = `<span class="spinner"></span> ${text}`;
+            } else {
+                btn.disabled = false;
+                btn.textContent = btn.dataset.originalText || text;
+            }
+        };
 
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
@@ -186,13 +213,14 @@
         const fetchStudents = async (searchTerm) => {
             const cleanedSearchTerm = searchTerm.trim();
             if (cleanedSearchTerm.length < 2) {
-                searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Digite pelo menos 2 letras para buscar.</p>';
+                showToast('Digite pelo menos 2 letras para buscar.', 'info');
                 return;
             }
+
             const selectedGrupo = document.querySelector('input[name="grupo"]:checked').value;
-            searchBtn.disabled = true;
-            searchBtn.textContent = 'Buscando...';
-            searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Buscando...</p>';
+            setLoading(searchBtn, true, 'Buscando...');
+            searchResultsContainer.innerHTML = '';
+
             try {
                 const url = `/api/buscar-aluno?parteNome=${encodeURIComponent(cleanedSearchTerm)}&grupo=${selectedGrupo}`;
                 const response = await fetch(url);
@@ -200,16 +228,15 @@
                 displayResults(students);
             } catch (error) {
                 console.error('Erro ao buscar alunos:', error);
-                searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Erro ao conectar com o servidor.</p>';
+                showToast('Erro ao conectar com o servidor.', 'error');
             } finally {
-                searchBtn.disabled = false;
-                searchBtn.textContent = 'Buscar';
+                setLoading(searchBtn, false, 'Buscar');
             }
         };
 
         const callStudent = async (studentData, buttonElement) => {
-            buttonElement.textContent = "Chamando...";
-            buttonElement.disabled = true;
+            const originalText = "Chamar";
+            setLoading(buttonElement, true, "Chamando...");
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
@@ -222,25 +249,38 @@
                     },
                     body: JSON.stringify(studentData)
                 });
+
                 if (response.ok) {
-                    buttonElement.textContent = "Chamado!";
-                    buttonElement.style.backgroundColor = '#5cb85c';
+                    buttonElement.innerHTML = "✓ Chamado!";
+                    buttonElement.style.backgroundColor = '#28a745'; // Verde sucesso
+                    showToast(`Aluno ${studentData.nomeCompleto} chamado com sucesso!`, 'success');
+
+                    // Reseta o botão após 2 segundos
+                    setTimeout(() => {
+                        buttonElement.disabled = false;
+                        buttonElement.textContent = originalText;
+                        buttonElement.style.backgroundColor = ''; // Volta ao padrão (CSS)
+                    }, 2000);
                 } else {
-                    buttonElement.textContent = "Erro!";
-                    buttonElement.style.backgroundColor = '#d9534f';
+                    throw new Error("Falha no servidor");
                 }
             } catch (error) {
-                console.error('Erro de rede ao chamar aluno:', error);
-                buttonElement.textContent = "Erro de Rede!";
-                buttonElement.style.backgroundColor = '#d9534f';
+                console.error('Erro ao chamar aluno:', error);
+                buttonElement.textContent = "Erro!";
+                buttonElement.style.backgroundColor = '#dc3545';
+                showToast('Não foi possível chamar o aluno. Tente novamente.', 'error');
+
+                setTimeout(() => {
+                    buttonElement.disabled = false;
+                    buttonElement.textContent = originalText;
+                    buttonElement.style.backgroundColor = '';
+                }, 3000);
             }
         };
 
         const executeClearAll = async () => {
-            clearAllBtn.textContent = "Limpando...";
-            clearAllBtn.disabled = true;
+            setLoading(modalConfirmBtn, true, "Limpando...");
 
-            // --- MUDANÇA: Chamada ao Backend ---
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
             try {
@@ -253,20 +293,20 @@
                 });
 
                 if (response.ok) {
-                    alert("Painéis limpos com sucesso!");
+                    showToast('Todos os painéis foram limpos com sucesso!', 'success');
                 } else {
                     throw new Error("Falha no servidor");
                 }
             } catch (error) {
                 console.error("Erro ao limpar os painéis: ", error);
-                alert("Ocorreu um erro ao tentar limpar os painéis.");
+                showToast('Ocorreu um erro ao tentar limpar os painéis.', 'error');
             } finally {
-                clearAllBtn.textContent = "Limpar Tudo";
-                clearAllBtn.disabled = false;
+                setLoading(modalConfirmBtn, false, "Confirmar Limpeza");
+                confirmationModal.style.display = 'none'; // Fecha o modal
             }
         };
 
-        const handleVoiceSearch = () => { };
+        const handleVoiceSearch = () => { showToast('Busca por voz em desenvolvimento!', 'info'); };
 
         searchForm.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -290,7 +330,7 @@
         });
 
         modalConfirmBtn.addEventListener('click', () => {
-            confirmationModal.style.display = 'none';
+            // A função executeClearAll agora gerencia o fechamento do modal após sucesso/erro
             executeClearAll();
         });
 
