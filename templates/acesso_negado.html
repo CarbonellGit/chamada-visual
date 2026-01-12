@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<!--
+    Template: acesso_negado.html
+    Propósito geral:
+    - Exibir uma página simples informando ao usuário que o acesso foi negado.
+    - Indicar a política de domínio de e-mail exigida (@colegiocarbonell.com.br).
+    - Oferecer um link para tentar o login novamente.
+
+    Observações de uso:
+    - Este arquivo é um template Jinja2 usado por uma aplicação Flask (presumivelmente).
+    - Não contém lógica dinâmica além de chamadas a `url_for` para resolver URLs de rota e arquivos estáticos.
+    - Comentários abaixo explicam cada bloco/elemento e considerações importantes.
+-->
+<html lang="pt-br">
+<head>
+        <!--
+                Metadados:
+                - charset: define a codificação de caracteres do documento como UTF-8.
+                - title: texto exibido na aba/janela do navegador.
+        -->
+        <meta charset="UTF-8">
+        <title>Acesso Negado</title>
+
+        <!--
+                Inclusão de CSS estático via Flask/Jinja:
+                - `url_for('static', filename='style.css')` é resolvido pelo Flask para o caminho
+                    absoluto do arquivo estático configurado (normalmente /static/style.css).
+                - Caso o arquivo não exista ou o endpoint 'static' esteja configurado incorretamente,
+                    o navegador não aplicará o estilo; o template continuará funcional mas com aparência
+                    padrão do navegador.
+        -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+        <!--
+                Container principal da página de login/erro.
+                - A classe `login-container` deve estar definida em style.css; ela centraliza e estiliza
+                    o conteúdo. Manter a classe consistente com outros templates relacionados (ex: login.html)
+                - Este template é intencionalmente simples: concentra-se em comunicar o motivo da negação
+                    de acesso e fornecer uma ação (Tentar Novamente).
+        -->
+        <div class="login-container">
+                <!-- Cabeçalho visível para o usuário indicando o estado atual -->
+                <h1>Acesso Negado</h1>
+
+                <!--
+                        Parágrafo explicativo (classe `lead` para destaque visual):
+                        - Texto fixo informando a restrição de domínio de e-mail.
+                        - Se, no futuro, for necessário internacionalizar (i18n), este texto deve ser
+                            extraído para arquivos de tradução e substituído por chamadas gettext/Flask-Babel.
+                        - Edge cases: o usuário pode ver essa tela se o provedor de identidade retornar um
+                            e-mail de domínio diferente, ou se não conseguir recuperar o e-mail do usuário.
+                -->
+                <p class="lead">Você precisa usar uma conta de e-mail do domínio @colegiocarbonell.com.br para acessar este sistema.</p>
+
+                <!--
+                        Link para tentar o fluxo de login novamente.
+                        - `url_for('login')` resolve para a rota Flask chamada 'login'.
+                        - Se a rota 'login' não estiver registrada ou for renomeada, o template levantará
+                            uma exceção na renderização (jinja2.exceptions.UndefinedError / BuildError).
+                        - Considere envolver a resolução de rotas no servidor, garantindo que a rota exista
+                            antes de renderizar templates que a referenciam.
+                        - A classe `google-login-button` sugere que o estilo corresponde a um botão de login
+                            (possivelmente com ícone do Google). O comportamento real de autenticação é controlado
+                            pelo handler da rota `login`, que não faz parte deste arquivo.
+                -->
+                <a href="{{ url_for('login') }}" class="google-login-button">Tentar Novamente</a>
+        </div>
+</body>
+</html>

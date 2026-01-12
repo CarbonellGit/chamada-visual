@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+        <!--
+                Arquivo: templates/painel_base.html
+                Propósito geral: Template base para o painel de chamada do Colégio Carbonell.
+                - Exibe uma grade de "cards" de alunos baseada em dados em tempo real vindos do
+                    Firestore (via Firebase). O template é usado por diferentes rotas (ex.: infantil,
+                    fundamental) e recebe do backend (Flask) o nome da coleção a ser monitorada
+                    via a variável Jinja2 `collection_name`.
+                - Contém estilos críticos embutidos para garantir layout de tela cheia e responsivo
+                    com unidades relativas à altura da viewport (vh), além de scripts que cuidam
+                    da sincronização em tempo real, reprodução de som, wake lock e remoção automática
+                    de alunos por timeout.
+                Observação: Não alterar a estrutura funcional do HTML/JS; somente comentários foram
+                adicionados para documentação técnica em Português (pt-BR).
+        -->
+    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Painel de Chamada - Colégio Carbonell</title> <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        /* ------------------------------------------------------------
+           1. ESTRUTURA DA GRADE (GRID) E LAYOUT GERAL
+           Comentários adicionais (pt-BR):
+           - As regras abaixo forçam o painel a ocupar a tela inteira e
+             removem barras de rolagem para evitar deslocamentos durante
+             a exibição contínua das chamadas.
+           - Usamos unidades relativas à altura da viewport (vh) para que
+             os elementos escalem proporcionalmente em displays grandes
+             (ex.: monitores de sala). O uso de !important aqui garante
+             que estilos externos não sobrescrevam estes ajustes críticos
+             de layout.
+        ------------------------------------------------------------ */
+        /* Garante que o painel ocupe 100% da tela, sem margens ou barras de rolagem */
+        html,
+        body.panel-page {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Evita que apareçam barras de rolagem durante o uso em tela cheia */
+            box-sizing: border-box; /* Faz com que padding não aumente a largura/altura totais */
+        }
+
+        /* Container principal onde a grade de alunos será exibida.
+           Mantém padding interno para que os cards não encostem nas bordas.
+        */
+        .display-container {
+            height: 100%;
+            width: 100%;
+            padding: 10px; /* Espaçamento entre a borda da tela e a grade */
+            box-sizing: border-box;
+        }
+
+        /*
+          A grade que organiza os cards dos alunos.
+          - grid-template-columns: define 5 colunas de tamanho igual.
+          - grid-template-rows: define 2 linhas calculadas para usar 100% da altura
+            menos o gap (10px), dividindo igualmente entre as duas linhas.
+          Observação: O uso de !important sinaliza que esse layout é crítico para o
+          painel e não deve ser sobrescrito por CSS global.
+        */
+        #student-grid {
+            display: grid;
+            height: 100%;
+            width: 100%;
+            gap: 10px; /* Espaçamento entre os cards */
+            grid-template-columns: repeat(5, 1fr) !important; /* 5 colunas iguais */
+            grid-template-rows: repeat(2, calc((100% - 10px) / 2)) !important; /* 2 linhas iguais */
+        }
+
+        /* ------------------------------------------------------------
+           2. ESTILO DO CARD DO ALUNO (CONTEÚDO INTERNO)
+           Explicações:
+           - Os cards usam unidades relativas (vh) para que foto e texto
+             mantenham proporção em telas de diferentes tamanhos.
+           - As classes abaixo são usadas no JavaScript ao criar os cards
+             dinamicamente; renomear essas classes exigiria mudanças no JS.
+        ------------------------------------------------------------ */
+        /* Estiliza cada card individualmente */
+        .student-card {
+            padding: 1vh !important; /* Espaçamento interno relativo à altura da tela */
+            justify-content: center !important; /* Centraliza o conteúdo verticalmente */
+        }
+
+        /* Estilo para a foto do aluno dentro do card
+           - largura/altura fixadas em 18vh para garantir fotos quadradas
+           - flex-shrink permite encolhimento em layouts restritos
+        */
+        .student-photo-large {
+            width: 18vh !important;
+            height: 18vh !important;
+            margin-bottom: 0.5vh !important;
+            max-width: none !important;
+            flex-shrink: 1 !important; /* Permite que a foto encolha se necessário */
+        }
+
+        /* Estilos tipográficos dentro do card */
+        .student-card-name {
+            font-size: 2.8vh !important; /* Tamanho da fonte relativo à altura da tela */
+            line-height: 1.15 !important; /* Espaçamento entre linhas */
+        }
+
+        .student-card-class {
+            font-size: 2.2vh !important; /* Texto da turma (subtítulo) */
+        }
+    </style>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Tela de sobreposição que aparece antes de o painel ser ativado */
+        #activation-overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(43, 58, 108, 0.95); /* Azul Carbonell com transparência */
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 1000; /* Garante que fique por cima de todo o conteúdo */
+            color: white; text-align: center;
+        }
+
+        #activation-overlay h2 { font-size: 2.5rem; }
+        #activation-overlay p { font-size: 1.2rem; margin-top: 0; }
+        
+        /* Estilo do botão de ativação */
+        #activate-btn {
+            padding: 15px 30px; font-size: 1.2rem; font-weight: bold;
+            color: var(--carbonell-azul-marinho); background-color: var(--carbonell-amarelo);
+            border: none; border-radius: 8px; cursor: pointer; margin-top: 20px;
+        }
+
+        /* Animação de entrada para os cards dos alunos */
+        .student-card {
+            animation: card-enter 0.5s ease-out forwards;
+        }
+        @keyframes card-enter {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Animação de saída para os cards dos alunos */
+        @keyframes card-exit {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.8); }
+        }
+        .exiting {
+            animation: card-exit 0.5s ease-in forwards;
+        }
+    </style>
+</head>
+
+<body class="terminal-body panel-page">
+
+    <!--
+        Tela inicial de ativação (overlay):
+        - Objetivo: permitir que o usuário autorize funcionalidades que requerem interação
+          explícita (ex.: reprodução de som, wake lock, entrar em tela cheia).
+        - O overlay é removido quando o painel é ativado pelo botão.
+    -->
+    <div id="activation-overlay">
+        <h2>Painel de Chamada</h2>
+        <p>Clique no botão abaixo para iniciar o monitoramento e ativar as notificações sonoras.</p>
+        <button id="activate-btn">Ativar Painel</button>
+    </div>
+
+    <!-- Container principal com a grade que receberá os cards de alunos -->
+    <div class="container display-container">
+        <!--
+            Elemento alvo onde os cards são inseridos dinamicamente pelo JS.
+            - Se não houver chamados, o JavaScript define um estado vazio com logotipo e
+              o texto "Aguardando chamada...".
+            - Os IDs e classes usados aqui são referenciados diretamente pelo script.
+        -->
+        <main id="student-grid"></main>
+    </div>
+
+    <!-- Elemento audio para tocar notificação quando um novo aluno é adicionado -->
+    <audio id="notification-sound" src="{{ url_for('static', filename='sound/notification.mp3') }}" preload="auto"></audio>
+
+    <!-- Script de configuração do Firebase (módulo local) -->
+    <script type="module" src="{{ url_for('static', filename='firebase-config.js') }}"></script>
+    
+    <script type="module">
+        // Importa as funções necessárias do SDK do Firebase
+        import { db } from '/static/firebase-config.js';
+        import { collection, query, orderBy, onSnapshot, getDocs, deleteDoc, doc, where, Timestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        // --- CONFIGURAÇÕES GLOBAIS DO PAINEL ---
+        /**
+         * MAX_DISPLAY_COUNT: número máximo de cards exibidos simultaneamente.
+         * Motivo: limite visual e para evitar acúmulo de documentos no painel.
+         */
+        const MAX_DISPLAY_COUNT = 10; // Número máximo de alunos a serem exibidos simultaneamente
+
+        /**
+         * TIMEOUT_MINUTES: tempo (em minutos) após o qual um aluno é considerado "expirado"
+         * e será removido automaticamente do Firestore pelo script (limpeza automática).
+         */
+        const TIMEOUT_MINUTES = 10; // Tempo em minutos para remover um aluno automaticamente
+
+        // --- REFERÊNCIAS AOS ELEMENTOS HTML ---
+        const studentGrid = document.getElementById('student-grid'); // A grade de alunos (inserção dinâmica)
+        const notificationSound = document.getElementById('notification-sound'); // O som de notificação
+        const activationOverlay = document.getElementById('activation-overlay'); // A tela de ativação
+        const activateBtn = document.getElementById('activate-btn'); // O botão de ativação
+
+        // --- PONTO CHAVE DA REUTILIZAÇÃO DO TEMPLATE ---
+        // A variável 'collection_name' é injetada aqui pelo backend (Flask/app.py).
+        // Exemplo: rota '/painel-infantil' define collection_name = 'chamados_ei'
+        //          rota '/painel-fundamental' define collection_name = 'chamados_fund'
+        // Isso permite que o mesmo template/JS funcione para múltiplos painéis.
+        const collectionName = "{{ collection_name }}";
+        const chamadosCollection = collection(db, collectionName); // Referência à coleção Firestore correta
+
+        /**
+         * deleteStudent - remove um documento (aluno) da coleção atual no Firestore.
+         * @param {string} studentId - ID do documento a ser removido.
+         * Observações de erro/edge-cases:
+         * - Se a remoção falhar, o erro será logado no console, mas não há retry automático.
+         * - A função usa a variável dinâmica 'collectionName' para evitar apagar na coleção errada.
+         */
+        const deleteStudent = async (studentId) => {
+            try {
+                // Usa o 'collectionName' dinâmico para garantir que estamos apagando do painel certo.
+                await deleteDoc(doc(db, collectionName, studentId));
+            }
+            catch (error) {
+                // Log detalhado para facilitar diagnóstico em produção.
+                console.error(`Erro ao deletar aluno da coleção '${collectionName}': `, error);
+            }
+        };
+
+        /**
+         * startMonitoring - inicializa o listener em tempo real para a coleção do Firestore.
+         * Comportamento:
+         * - Remove o overlay de ativação (permitindo reprodução de som e fullscreen).
+         * - Exibe um estado "aguardando" enquanto não há chamados.
+         * - Usa onSnapshot() para receber updates em tempo real e processa docChanges().
+         * Fluxo de processamento das mudanças:
+         * - added: cria um card no topo da grade, toca som de notificação.
+         * - removed: aplica animação de saída e remove o elemento após a animação.
+         * Limpeza automática de excesso de docs:
+         * - Se o snapshot contiver mais documentos que MAX_DISPLAY_COUNT, os mais antigos
+         *   (além do limite) são deletados do Firestore para manter a coleção pequena.
+         */
+        function startMonitoring() {
+            // Esconde a tela de ativação e mostra o estado inicial do painel.
+            activationOverlay.style.display = 'none';
+            const emptyStateHTML = `<div class="empty-state"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo-empty"><h2>Aguardando chamada...</h2></div>`;
+            studentGrid.innerHTML = emptyStateHTML;
+
+            // Cria uma consulta ao Firestore, ordenando os alunos pelo mais recente.
+            const q = query(chamadosCollection, orderBy("timestamp", "desc"));
+            
+            // onSnapshot "ouve" as mudanças na coleção em tempo real.
+            onSnapshot(q, (querySnapshot) => {
+                // Lógica para remover alunos antigos se o limite for excedido.
+                // Atenção: aqui a remoção é feita diretamente no Firestore (side-effect).
+                if (querySnapshot.size > MAX_DISPLAY_COUNT) {
+                    const oldestDocs = querySnapshot.docs.slice(MAX_DISPLAY_COUNT);
+                    oldestDocs.forEach(doc => deleteStudent(doc.id));
+                }
+
+                // Processa cada mudança (aluno adicionado ou removido).
+                querySnapshot.docChanges().forEach((change) => {
+                    // Se um aluno foi ADICIONADO:
+                    if (change.type === "added") {
+                        // Se estivermos no estado vazio (mensagem "Aguardando chamada..."), limpa a grade.
+                        if (studentGrid.querySelector('.empty-state')) { studentGrid.innerHTML = ''; }
+                        const student = change.doc.data();
+
+                        /*
+                          Cria o elemento visual do aluno (card).
+                          - id do card: `card-<documentId>` usado para localizar e remover o card
+                            quando o documento for removido no Firestore.
+                          - O HTML do card contém imagem, nome e turma. Se qualquer campo
+                            estiver ausente no documento (ex.: foto), o template usará
+                            o valor tal como armazenado; não há fallback implementado aqui.
+                        */
+                        const studentCard = document.createElement('div');
+                        studentCard.className = 'student-card';
+                        studentCard.id = `card-${change.doc.id}`;
+                        // Cria o HTML do card com os dados do aluno.
+                        studentCard.innerHTML = `<img src="${student.fotoUrl}" alt="Foto de ${student.nomeCompleto}" class="student-photo-large"><div class="student-card-info"><span class="student-card-name">${student.nomeCompleto}</span><span class="student-card-class">${student.turma}</span></div>`;
+                        // Adiciona o novo card no início da grade (mais recente primeiro).
+                        studentGrid.insertBefore(studentCard, studentGrid.firstChild);
+                        // Toca o som de notificação. Se a reprodução falhar (ex.: autoplay bloqueado),
+                        // apenas registra um warning; não interrompe o fluxo.
+                        notificationSound.play().catch(e => console.warn("A reprodução do som falhou.", e));
+                    }
+                    // Se um aluno foi REMOVIDO:
+                    if (change.type === "removed") {
+                        const cardToRemove = document.getElementById(`card-${change.doc.id}`);
+                        if (cardToRemove) {
+                            // Adiciona classe que dispara animação de saída.
+                            cardToRemove.classList.add('exiting');
+                            // Espera a animação terminar para remover o elemento da tela.
+                            cardToRemove.addEventListener('animationend', () => {
+                                cardToRemove.remove();
+                                // Se a grade ficar vazia, mostra a mensagem "Aguardando chamada...".
+                                if (studentGrid.children.length === 0) { studentGrid.innerHTML = emptyStateHTML; }
+                            });
+                        }
+                    }
+                });
+            });
+        }
+
+        /**
+         * enterFullScreen - tenta colocar o documento em modo de tela cheia.
+         * Observações de compatibilidade:
+         * - Usa vários prefixes para suportar diferentes engines (padronizado, webkit, ms).
+         * - Chamadas a requestFullscreen tipicamente requerem interação do usuário;
+         *   por isso são invocadas após clique no botão de ativação.
+         */
+        function enterFullScreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) { elem.requestFullscreen(); }
+            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } // Para browsers como Chrome e Safari
+            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); } // Para Internet Explorer
+        }
+
+        // --- LÓGICA DO WAKE LOCK API ---
+        // O Wake Lock impede que a tela do dispositivo se apague sozinha.
+        // Observações:
+        // - A API pode não estar disponível em todos os navegadores; o código verifica
+        //   a presença de 'wakeLock' em navigator e faz fallback com um warning.
+        // - Quando o Wake Lock é liberado, um listener loga essa ocorrência.
+        let wakeLock = null;
+        const requestWakeLock = async () => {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock ativado. A tela não será desligada.');
+                    // Ao liberar, registramos no console para diagnóstico.
+                    wakeLock.addEventListener('release', () => { console.log('Wake Lock foi liberado.'); });
+                } catch (err) { console.error(`${err.name}, ${err.message}`); }
+            } else { console.warn('API Wake Lock não é suportada neste navegador.'); }
+        };
+
+        // --- EVENT LISTENERS (OUVINTES DE EVENTOS) ---
+        // Evento de clique no botão de ativação. Executa em sequência ações que geralmente
+        // exigem interação do usuário (permitem reprodução de som e fullscreen).
+        activateBtn.addEventListener('click', () => {
+            startMonitoring(); // Inicia o monitoramento (cria onSnapshot listener)
+            requestWakeLock(); // Pede para manter a tela acesa (se suportado)
+            enterFullScreen(); // Tenta colocar em tela cheia
+        });
+
+        // Reativa o Wake Lock se o usuário sair e voltar para a aba.
+        // Justificativa: navegadores podem liberar o wake lock quando a aba perde visibilidade.
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                await requestWakeLock();
+            }
+        });
+
+        // --- REMOÇÃO AUTOMÁTICA POR TEMPO ---
+        // A cada 30 segundos, verifica se há alunos que excederam o tempo limite no painel
+        // e remove esses documentos do Firestore. Isso evita que chamadas antigas se acumulem.
+        // Observações de design:
+        // - Usa Timestamp.fromDate para converter um Date JS em um Timestamp do Firestore.
+        // - Erros são logados no console; não há retry nem backoff implementados.
+        setInterval(async () => {
+            const timeoutThreshold = new Date(Date.now() - TIMEOUT_MINUTES * 60 * 1000);
+            const firestoreTimestamp = Timestamp.fromDate(timeoutThreshold);
+            // Cria uma consulta para buscar alunos mais antigos que o tempo limite.
+            const timeoutQuery = query(chamadosCollection, where("timestamp", "<=", firestoreTimestamp));
+            try {
+                const timedOutDocs = await getDocs(timeoutQuery);
+                // Para cada aluno encontrado, chama a função para deletá-lo.
+                timedOutDocs.forEach(timedOutDoc => { deleteStudent(timedOutDoc.id); });
+            } catch (error) { console.error("Erro ao verificar timeouts: ", error); }
+        }, 30000); // 30000 milissegundos = 30 segundos
+    </script>
+</body>
+
+</html>

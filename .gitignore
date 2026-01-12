@@ -1,0 +1,9 @@
+# Ignorar chaves e bancos de dados
+config/*.json
+instance/*.json
+instance/*.db
+*.pyc
+__pycache__/
+venv/
+app.yaml
+.env

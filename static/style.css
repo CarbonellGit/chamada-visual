@@ -1,0 +1,411 @@
+/* Importa a fonte do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
+
+/* Define a paleta de cores do Carbonell como variáveis globais */
+:root {
+    --carbonell-azul-escuro: #2b3a6c;
+    --carbonell-azul-marinho: #1e2a4d;
+    --carbonell-amarelo: #f7b53b;
+    --carbonell-vermelho: #d82a2b;
+    --carbonell-branco: #ffffff;
+    --fundo-claro: #f8f9fa;
+}
+
+/*
+    Comentários gerais de estilo (pt-BR):
+    - Este arquivo centraliza os estilos da aplicação de Chamada Visual.
+    - Variáveis CSS em :root facilitam ajustar rapidamente a paleta de
+        cores da identidade visual do Colégio Carbonell.
+    - As classes seguem uma separação por áreas funcionais: login,
+        terminal (busca), painel (grade/ cartões) e responsividade.
+    - Comentários inline explicam decisões não óbvias e pontos marcados como
+        "PONTO DA CORREÇÃO" que indicam ajustes feitos para resolver problemas
+        de layout em diferentes breakpoints.
+*/
+
+/* --- ESTILOS GERAIS E DE LOGIN --- */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--fundo-claro);
+    color: var(--carbonell-azul-marinho);
+    margin: 0;
+}
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+}
+
+.login-logo-container img {
+    max-width: 200px;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
+.login-container h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.login-container p {
+    font-size: 1.2rem;
+    color: #6c757d;
+}
+
+.google-login-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    margin-top: 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    text-decoration: none;
+    color: var(--carbonell-branco);
+    background-color: var(--carbonell-azul-escuro);
+    border: 1px solid var(--carbonell-azul-escuro);
+    border-radius: 8px;
+    transition: background-color 0.3s;
+}
+
+.google-login-button:hover {
+    background-color: var(--carbonell-azul-marinho);
+}
+
+.google-login-button img {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+}
+
+.flash-message {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+    width: 80%;
+    max-width: 500px;
+}
+
+.flash-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+/* --- ESTILOS DO CORPO DO TERMINAL E PAINEL --- */
+.terminal-body {
+    background-color: var(--carbonell-azul-marinho);
+}
+
+body.panel-page {
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.display-container {
+    max-width: 95%;
+}
+
+/* PONTO DA CORREÇÃO (Fileira Cortada): Reduz a altura para 95vh para dar espaço à barra do navegador */
+body.panel-page .display-container {
+    height: 95vh;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+/*
+    Observação: o ajuste acima evita que elementos do painel fiquem
+    ocultos atrás da UI do navegador em dispositivos móveis ou em modo
+    de tela cheia. Mantemos a unidade 'vh' para que o layout se adapte
+    automaticamente à altura da janela.
+*/
+
+/* --- ESTILOS DO HEADER DO TERMINAL --- */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--carbonell-azul-escuro);
+    color: var(--carbonell-branco);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.header-left h1 {
+    margin: 0;
+    font-size: 1.8em;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-info span {
+    font-size: 0.9em;
+}
+
+.logo {
+    height: 50px;
+}
+
+.logout-button {
+    background: none;
+    border: 1px solid var(--carbonell-amarelo);
+    color: var(--carbonell-amarelo);
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.9em;
+}
+
+.logout-button:hover {
+    background-color: var(--carbonell-amarelo);
+    color: var(--carbonell-azul-marinho);
+}
+
+/*
+    Notas sobre o header:
+    - O header usa flexbox para distribuir a área esquerda (logo/título)
+        e direita (informações do usuário, logout).
+    - Em telas pequenas (media queries abaixo) a orientação muda para
+        coluna para evitar sobreposição e manter a usabilidade.
+*/
+
+/* --- ESTILOS DA BUSCA DO TERMINAL --- */
+.search-bar { margin: 20px 0; display: flex; gap: 10px; }
+.search-bar input { flex-grow: 1; padding: 15px; font-size: 1.2em; border-radius: 8px; border: 2px solid var(--carbonell-azul-escuro); background-color: var(--carbonell-branco); color: var(--carbonell-azul-marinho); box-sizing: border-box; }
+#search-results { display: flex; flex-direction: column; gap: 10px; }
+.student-result-item { display: flex; align-items: center; background-color: var(--carbonell-azul-escuro); padding: 10px; border-radius: 8px; }
+.student-photo-small { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; margin-right: 15px; border: 2px solid var(--carbonell-amarelo); }
+.student-info { flex-grow: 1; display: flex; flex-direction: column; }
+.student-name { font-weight: bold; color: var(--carbonell-branco); }
+.student-class { font-size: 0.9em; opacity: 0.8; color: var(--carbonell-branco); }
+.btn { padding: 10px 20px; border: none; border-radius: 5px; font-size: 1em; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: background-color 0.3s ease; }
+.btn-action { background-color: var(--carbonell-amarelo); color: var(--carbonell-azul-marinho); }
+.btn-danger, #clear-all-btn { background-color: var(--carbonell-vermelho); color: var(--carbonell-branco); font-size: 0.9em; padding: 8px 16px; }
+/* ALTERAÇÃO AQUI para incluir o novo botão */
+#search-btn, #mic-btn, #clear-search-btn { background-color: var(--carbonell-azul-escuro); color: var(--carbonell-branco); padding: 0 25px; }
+#mic-btn, #clear-search-btn { font-size: 1.5em; padding: 0 15px; }
+#mic-btn.is-listening { background-color: var(--carbonell-vermelho); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(216, 42, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(216, 42, 43, 0); } }
+
+/* --- ESTILOS DO PAINEL DE EXIBIÇÃO --- */
+
+#student-grid {
+    display: grid;
+    gap: 15px;
+    margin-top: 20px;
+    /* Começa com 1 coluna e as media queries ajustam para telas maiores */
+    grid-template-columns: 1fr;
+}
+
+/* PONTO DA CORREÇÃO (Fileira Cortada): Define explicitamente 2 linhas de altura igual */
+body.panel-page #student-grid {
+    flex-grow: 1;
+    grid-template-rows: repeat(2, 1fr);
+}
+
+/*
+    Observação: Definimos explicitamente duas linhas de altura igual para
+    o grid no painel. Isso garante que, mesmo com poucos cartões (student-card),
+    o espaço vertical seja distribuído de forma consistente e o layout
+    mantenha proporção visual balanceada.
+*/
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding-top: 10vh;
+}
+
+.logo-empty {
+    max-height: 150px;
+    margin-bottom: 20px;
+}
+
+.empty-state h2 {
+    font-size: 2.5em;
+    color: var(--carbonell-branco);
+    opacity: 0.7;
+}
+
+.student-card {
+    background-color: var(--carbonell-azul-escuro);
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    border: 3px solid var(--carbonell-amarelo);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.5s ease-in-out;
+    overflow: hidden;
+}
+
+.student-photo-large {
+    width: 60%;
+    max-width: 150px;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid var(--carbonell-branco);
+    margin-bottom: 10px;
+    flex-shrink: 0;
+}
+
+.student-card-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex-grow: 1;
+    width: 100%;
+}
+
+.student-card-name {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-size: clamp(0.9em, 1.5vw, 1.4em);
+    font-weight: 900;
+    line-height: 1.2;
+    color: var(--carbonell-branco);
+}
+
+.student-card-class {
+    font-size: clamp(0.8em, 1.3vw, 1.2em);
+    font-weight: 700;
+    opacity: 0.8;
+    color: var(--carbonell-branco);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.exiting {
+    animation: card-exit 0.5s ease-in forwards;
+}
+
+@keyframes card-exit {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.8); }
+}
+
+/* --- ESTILOS RESPONSIVOS --- */
+/* PONTO DA CORREÇÃO (Grade): Retornamos à lógica que funcionou, com breakpoints claros */
+@media (min-width: 576px) {
+    #student-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 768px) {
+    #student-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 992px) {
+    #student-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/*
+    Notas de responsividade:
+    - A grade do painel adapta-se em 4 breakpoints principais:
+            * mobile (padrão): 1 coluna
+            * ≥576px: 2 colunas
+            * ≥768px: 3 colunas
+            * ≥992px: 5 colunas
+    - Esses valores foram escolhidos para maximizar legibilidade dos
+        nomes e fotos dos alunos em displays de diferentes tamanhos.
+    - Em telas muito largas, o comportamento pode ser ajustado adicionando
+        max-width em .student-card ou alterando o número de colunas.
+*/
+
+/* As regras abaixo afetam o header e o terminal em telas pequenas */
+@media (max-width: 767px) {
+    .container {
+        padding: 15px;
+    }
+    header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+    }
+    .header-left, .header-right {
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        text-align: center;
+    }
+    .user-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .search-bar {
+        flex-wrap: wrap;
+    }
+    .search-bar input {
+        flex-basis: 100%;
+        margin-bottom: 10px;
+    }
+    .search-bar #search-btn,
+    .search-bar #mic-btn,
+    /* ALTERAÇÃO AQUI para responsividade */
+    .search-bar #clear-search-btn {
+        flex-grow: 1;
+        flex-basis: 0;
+    }
+    .student-result-item {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 5px;
+    }
+    .student-photo-small {
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+    .btn-action {
+        width: 100%;
+        margin-top: 10px;
+        padding: 12px;
+    }
+}
+
+@media (max-width: 575px) {
+    .header-left h1 {
+        font-size: 1.5em;
+    }
+}
