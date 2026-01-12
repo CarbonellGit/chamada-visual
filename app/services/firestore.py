@@ -7,8 +7,13 @@ logger = logging.getLogger(__name__)
 
 def get_db():
     """
-    Retorna o cliente do Firestore.
-    Tenta pegar do contexto da aplicação (app.db) se disponível.
+    Recupera a instância do cliente Firestore ativa.
+    
+    Tenta obter o cliente do contexto global da aplicação Flask (`current_app.db`).
+    Se não estiver em um contexto de app (ex: script isolado), cria uma nova instância.
+
+    Returns:
+        google.cloud.firestore.Client | None: Cliente do Firestore ou None em caso de erro.
     """
     try:
         # Se estivermos dentro de um contexto de requisição Flask
@@ -21,7 +26,18 @@ def get_db():
 
 def call_student(student_data):
     """
-    Registra um aluno na coleção correta do Firestore.
+    Registra a solicitação de chamada de um aluno na coleção apropriada do Firestore.
+
+    A função determina a coleção de destino com base na turma do aluno:
+    - Turmas iniciando com 'EI' -> `chamados_ei` (Educação Infantil)
+    - Turmas contendo 'AI' ou 'AF' -> `chamados_fund` (Ensino Fundamental)
+    - Outros -> `chamados` (Padrão)
+
+    Args:
+        student_data (dict): Dicionário contendo os dados do aluno (nome, turma, foto, etc).
+
+    Returns:
+        bool: True se o registro foi salvo com sucesso, False caso contrário.
     """
     db = get_db()
     if not db:
@@ -47,7 +63,15 @@ def call_student(student_data):
 
 def clear_all_panels():
     """
-    Remove todos os documentos das coleções de chamados.
+    Limpa todos os registros de chamados ativos em todas as coleções do sistema.
+
+    Itera sobre as coleções `chamados`, `chamados_ei` e `chamados_fund`,
+    deletando documento por documento.
+    
+    Atenção: Esta é uma operação destrutiva e irreversível.
+
+    Returns:
+        bool: True se a limpeza foi completa, False se houver erro.
     """
     db = get_db()
     if not db: return False

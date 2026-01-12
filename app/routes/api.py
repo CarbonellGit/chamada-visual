@@ -19,6 +19,16 @@ def login_required(f):
 @bp.route('/buscar-aluno', methods=['GET'])
 @login_required
 def buscar_aluno():
+    """
+    Endpoint para buscar alunos na base do Sophia.
+    
+    Query Params:
+        parteNome (str): Parte do nome para busca. Mínimo 2 caracteres.
+        grupo (str): Filtro de grupo ('todos' por padrão).
+
+    Returns:
+        JSON: Lista de alunos encontrados ou lista vazia.
+    """
     parte_nome = request.args.get('parteNome', '').strip()
     grupo = request.args.get('grupo', 'todos').upper()
     
@@ -35,6 +45,15 @@ def buscar_aluno():
 @bp.route('/chamar-aluno', methods=['POST'])
 @login_required
 def chamar_aluno():
+    """
+    Endpoint para registrar uma chamada de aluno.
+
+    Body (JSON):
+        Dados do aluno a ser chamado.
+
+    Returns:
+        JSON: {sucesso: bool} ou {erro: str}.
+    """
     data = request.get_json()
     if not data:
         logger.warning("Tentativa de chamada com dados inválidos.")

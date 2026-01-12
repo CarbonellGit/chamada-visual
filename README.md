@@ -1,119 +1,111 @@
 # Chamada Visual - Colégio Carbonell
 
-O sistema de Chamada Visual é uma aplicação web desenvolvida para otimizar o processo de chamada de alunos no Colégio Carbonell. A ferramenta permite que usuários autorizados busquem alunos em tempo real e os enviem para um painel de exibição.
+## Visão Geral
+O sistem de **Chamada Visual** é uma solução corporativa desenvolvida para o Colégio Carbonell que integra o sistema de gestão acadêmica (Sophia) com painéis de exibição visual. O objetivo é modernizar o processo de chamada de alunos, permitindo que a portaria ou coordenação solicite alunos via sistema, e estes sejam exibidos instantaneamente em monitores distribuídos pela escola.
 
-## 🚀 Funcionalidades Principais
+O fluxo de dados consiste na **Busca (integração com API Sophia)** -> **Processamento e Fila (Backend)** -> **Exibição em Tempo Real (Firestore + Frontend)**.
 
-*   **Autenticação Segura:** Login exclusivo para usuários com contas Google do domínio `@colegiocarbonell.com.br`.
-*   **Busca de Alunos:** Integração com a API do sistema de gestão Sophia para buscar alunos pelo nome.
-*   **Filtros Inteligentes:** As buscas podem ser filtradas por segmento de ensino.
-*   **Terminal de Chamada:** Uma interface simples onde o usuário busca por um aluno.
-*   **Painel de Exibição:** Uma tela de exibição (ideal para TVs e monitores) que mostra os alunos chamados.
+## Tech Stack
 
-## 🛠️ Tecnologias Utilizadas
+O projeto utiliza uma arquitetura baseada em microsserviços leves e serverless friendly.
 
-Este projeto foi construído com uma combinação de tecnologias de backend e frontend:
+### Backend
+*   **Python 3.10+**
+*   **Flask 3.0.0**: Framework web minimalista.
+*   **Firebase Admin SDK 6.4.0**: Gerenciamento do banco de dados NoSQL (Firestore).
+*   **Authlib 1.3.0**: Autenticação via OAuth 2.0 (Google Workspace).
+*   **Requests 2.31.0**: Cliente HTTP para comunicação com API Sophia.
+*   **Gunicorn 21.2.0**: Servidor WSGI para produção.
 
-### Backend:
+### Frontend
+*   **HTML5 / CSS3**: Interfaces responsivas.
+*   **JavaScript (ES6)**: Lógica client-side e manipulação de DOM.
+*   **Firestore Client SDK**: Para listeners em tempo real (snapshots) nos painéis.
 
-*   **Python:** A principal linguagem de programação.
-*   **Flask:** Um microframework web para construir a aplicação e a API.
-*   **Gunicorn:** Um servidor WSGI para executar a aplicação em produção.
-*   **Authlib:** Para integração com o sistema de autenticação do Google (OAuth).
+## Setup e Instalação
 
-### Frontend:
+Siga os passos abaixo para preparar o ambiente de desenvolvimento local.
 
-*   **HTML5 / CSS3:** Para a estrutura e estilização das páginas.
-*   **JavaScript (ES6 Modules):** Para interatividade no lado do cliente, como buscas e eventos de clique.
+### Pré-requisitos
+*   Python 3.10 ou superior instalado.
+*   Google Cloud Credentials (arquivo JSON de conta de serviço).
+*   Credenciais de API e acesso ao banco de dados do Sophia.
 
-## ⚙️ Configuração do Projeto
-
-Siga estes passos para configurar o projeto para desenvolvimento local.
-
-### 1. Pré-requisitos
-
-*   Python 3.7+
-*   Gerenciador de pacotes `pip`
-
-### 2. Clonar o Repositório
+### Passo 1: Clonar e Configurar Ambiente
 
 ```bash
+# Clone o repositório
 git clone <url-do-repositorio>
-cd <diretorio-do-repositorio>
-```
+cd chamada-visual
 
-### 3. Configurar um Ambiente Virtual
-
-É recomendado usar um ambiente virtual para gerenciar as dependências do projeto.
-
-```bash
-# Crie um ambiente virtual
+# Crie o ambiente virtual
 python -m venv venv
 
 # Ative o ambiente
-# No Windows:
-# venv\Scripts\activate
-# No macOS/Linux:
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
 source venv/bin/activate
 ```
 
-### 4. Instalar as Dependências
-
-Instale todos os pacotes necessários usando o arquivo `requirements.txt`.
+### Passo 2: Instalar Dependências
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Configurar Variáveis de Ambiente
+### Passo 3: Configurar Variáveis de Ambiente
 
-Crie um arquivo `.env` na raiz do projeto. Este arquivo armazenará credenciais e configurações sensíveis. Adicione as seguintes variáveis:
+Crie um arquivo `.env` na raiz do projeto copiando o exemplo abaixo:
 
+```ini
+# Segurança e Sessão
+SECRET_KEY='sua_chave_secreta_aqui'
+ALLOWED_EMAIL_DOMAIN='colegiocarbonell.com.br'
+
+# Google OAuth
+GOOGLE_CLIENT_ID='seu_client_id'
+GOOGLE_CLIENT_SECRET='seu_client_secret'
+
+# Integração Sophia
+SOPHIA_TENANT='seu_tenant'
+SOPHIA_USER='usuario_api'
+SOPHIA_PASSWORD='senha_api'
+SOPHIA_API_HOSTNAME='api.sophia.com.br'
+
+# Regras de Negócio
+IGNORE_CLASS_PREFIX='EM'
 ```
-# Chave secreta do Flask para gerenciamento de sessão
-SECRET_KEY='sua_chave_secreta_forte_aqui'
 
-# Credenciais do Google OAuth
-GOOGLE_CLIENT_ID='seu_id_de_cliente_google'
-GOOGLE_CLIENT_SECRET='seu_segredo_de_cliente_google'
+## Scripts Disponíveis
 
-# Credenciais da API Sophia
-SOPHIA_TENANT='seu_tenant_sophia'
-SOPHIA_USER='seu_usuario_sophia'
-SOPHIA_PASSWORD='sua_senha_sophia'
-SOPHIA_API_HOSTNAME='seu_hostname_da_api_sophia'
-```
-
-Substitua os valores de exemplo por suas credenciais reais.
-
-## 🏃‍♀️ Executando a Aplicação
-
-### Modo de Desenvolvimento
-
-Para desenvolvimento, você pode usar o servidor embutido do Flask:
+### Rodar localmente (Desenvolvimento)
+Inicia o servidor Flask com hot-reload ativo.
 
 ```bash
-export FLASK_APP=app.py
-export FLASK_ENV=development
-flask run
+python run.py
 ```
+Acesse: `http://localhost:5000`
 
-A aplicação estará disponível em `http://127.0.0.1:5000`.
-
-### Modo de Produção
-
-Para implantações em produção, é recomendado usar um servidor WSGI como o Gunicorn:
+### Rodar em Produção (Gunicorn)
+Em ambientes linux ou containers, utilize o Gunicorn.
 
 ```bash
-gunicorn --bind 0.0.0.0:8080 app:app
+gunicorn --bind 0.0.0.0:8080 --workers 4 --threads 8 app:app
 ```
 
-## 💻 Como Usar
+### Deploy
+Este projeto está configurado para **Google App Engine**.
+Para realizar o deploy:
 
-1.  **Login:** Acesse a URL da aplicação e faça login com uma conta Google autorizada do domínio `@colegiocarbonell.com.br`.
-2.  **Terminal:** Após o login, você será direcionado para a página do **Terminal**.
-3.  **Busca:** Utilize a barra de busca para encontrar alunos pelo nome. Você também pode aplicar filtros para diferentes segmentos.
-4.  **Painel:** A página **Painel** é projetada para ser exibida em uma tela pública (como uma TV) para mostrar os alunos chamados.
+```bash
+gcloud app deploy app.yaml
+```
 
----
-*Desenvolvedor Original: Thiago Marques*
+## Estrutura de Diretórios
+*   `app/`: Código fonte da aplicação.
+    *   `routes/`: Endpoints e controladores (Blueprints).
+    *   `services/`: Lógica de negócios e integrações externas.
+    *   `static/`: Assets (CSS, JS, Imagens).
+    *   `templates/`: Arquivos HTML (Jinja2).
+*   `instance/`: Arquivos de configuração da instância (se houver).

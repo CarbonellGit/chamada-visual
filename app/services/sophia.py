@@ -14,8 +14,19 @@ logger = logging.getLogger(__name__)
 token_lock = threading.Lock()
 
 def normalize_text(text):
+    """
+    Normaliza uma string removendo acentos e convertendo para minúsculas.
+
+    Args:
+        text (str): Texto original.
+
+    Returns:
+        str: Texto normalizado (ex: 'João' -> 'joao').
+    """
+
     if not text: return ""
     text = str(text).lower()
+
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 def get_db():
@@ -27,6 +38,21 @@ def get_db():
         return None
 
 def get_sophia_token():
+    """
+    Gerencia a obtenção e renovação do token de autenticação da API Sophia.
+
+    Implementa um padrão de Cache-Aside usando o Firestore para persistir o token
+    e evitar chamadas excessivas ao endpoint de autenticação.
+    Utiliza um `threading.Lock` para garantir thread-safety durante a renovação.
+
+    Fluxo:
+    1. Tenta ler token válido do Firestore.
+    2. Se expirado ou inexistente, autentica na API Sophia.
+    3. Salva novo token no Firestore com validade de 29 minutos.
+
+    Returns:
+        str | None: Token de acesso válido ou None em caso de falha.
+    """
     with token_lock:
         db = get_db()
         if not db:
@@ -39,6 +65,7 @@ def get_sophia_token():
             doc = doc_ref.get()
             if doc.exists:
                 data = doc.to_dict()
+                # Verifica se o token ainda é válido (com margem de 30s)
                 if time.time() < data.get('expires_at', 0) - 30:
                     return data.get('token')
         except Exception as e:
@@ -56,10 +83,12 @@ def get_sophia_token():
                 "usuario": current_app.config['SOPHIA_USER'],
                 "senha": current_app.config['SOPHIA_PASSWORD']
             }
+            # Timeout curto para não travar a thread por muito tempo
             response = requests.post(auth_url, json=payload, timeout=10)
             response.raise_for_status()
             
             new_token = response.text.strip()
+            # Define expiração para 29 minutos (API costuma expirar em 30)
             expires_at = time.time() + (29 * 60)
             
             doc_ref.set({
@@ -74,6 +103,19 @@ def get_sophia_token():
             return None
 
 def fetch_photo(aluno_id, headers, base_url):
+    """
+    Busca a foto de um aluno específico na API.
+
+    Função auxiliar projetada para ser executada em thread separada.
+
+    Args:
+        aluno_id (str): ID/Código do aluno.
+        headers (dict): Headers com token de autenticação.
+        base_url (str): URL base da API.
+
+    Returns:
+        tuple: (aluno_id, dados_da_foto_base64) ou (aluno_id, None) em caso de erro.
+    """
     try:
         url = f"{base_url}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
         resp = requests.get(url, headers=headers, timeout=5)
@@ -85,6 +127,25 @@ def fetch_photo(aluno_id, headers, base_url):
     return aluno_id, None
 
 def search_students(parte_nome, grupo_filtro):
+    """
+    Busca alunos na API Sophia com base no nome e aplicas filtros de negócio.
+
+    Lógica de Filtragem:
+    1. Remove alunos de turmas ignoradas (ex: Ensino Médio 'EM').
+    2. Filtra por grupo se especificado ('TODOS' traz tudo).
+    3. Remove alunos de turmas antigas (ano anterior ao vigente).
+    4. Realiza busca textual no nome normalizado.
+
+    Otimização:
+    - Realiza o fetch de fotos em paralelo (ThreadPool) para os alunos encontrados.
+
+    Args:
+        parte_nome (str): Termo de busca (nome parcial).
+        grupo_filtro (str): Filtro de segmento (ex: 'EI', 'FI', 'TODOS').
+
+    Returns:
+        list[dict]: Lista de dicionários contendo dados dos alunos filtrados.
+    """
     token = get_sophia_token()
     if not token:
         logger.error("Busca abortada: Falha de autenticação.")
@@ -135,6 +196,7 @@ def search_students(parte_nome, grupo_filtro):
             }
 
     if alunos_filtrados:
+        # Busca fotos em paralelo para não travar a requisição
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = {executor.submit(fetch_photo, aid, headers, base_url): aid for aid in alunos_filtrados}
             for future in concurrent.futures.as_completed(futures):

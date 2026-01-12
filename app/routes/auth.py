@@ -14,6 +14,15 @@ def login_google():
 
 @bp.route('/google-auth')
 def google_auth():
+    """
+    Callback de autenticação do Google OAuth.
+
+    Processa o token recebido, verifica o domínio do e-mail (se configurado)
+    e cria a sessão do usuário.
+
+    Returns:
+        Redirect: Redireciona para o terminal em sucesso ou login em falha.
+    """
     token = oauth.google.authorize_access_token()
     user_info = token.get('userinfo')
     
