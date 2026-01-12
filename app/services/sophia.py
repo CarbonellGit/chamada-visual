@@ -1,17 +1,15 @@
 import os
 import time
-import json
 import threading
-import tempfile
 import unicodedata
 import re
 import requests
 import concurrent.futures
 from datetime import datetime
 from flask import current_app
+from firebase_admin import firestore
 
-# Cache do token em arquivo temporário para persistência entre recargas do servidor
-TOKEN_CACHE_FILE = os.path.join(tempfile.gettempdir(), 'sophia_token.json')
+# Lock para evitar que múltiplas threads na mesma instância tentem renovar o token simultaneamente
 token_lock = threading.Lock()
 
 def normalize_text(text):
@@ -20,28 +18,43 @@ def normalize_text(text):
     text = str(text).lower()
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
+def get_db():
+    """Retorna o cliente do Firestore."""
+    try:
+        return firestore.client()
+    except ValueError:
+        return None
+
 def get_sophia_token():
     """
-    Gerencia a obtenção e renovação do token da API Sophia.
-    Usa lock de thread para evitar condições de corrida.
+    Gerencia a obtenção e renovação do token da API Sophia usando o Firestore como cache centralizado.
     """
     with token_lock:
-        # Tenta recuperar do cache
-        try:
-            if os.path.exists(TOKEN_CACHE_FILE):
-                with open(TOKEN_CACHE_FILE, 'r') as f:
-                    cache = json.load(f)
-                    if time.time() < cache.get('expires_at', 0):
-                        return cache.get('token')
-        except Exception:
-            pass  # Ignora erros de cache e força renovação
+        db = get_db()
+        if not db:
+            print("Erro: Firestore não disponível para recuperar token.")
+            return None
 
-        # Se não tem cache válido, solicita novo token
+        doc_ref = db.collection('system_config').document('sophia_token')
+
+        # 1. Tenta recuperar do Firestore
+        try:
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict()
+                # Verifica se o token ainda é válido (com margem de segurança de 30s)
+                if time.time() < data.get('expires_at', 0) - 30:
+                    return data.get('token')
+        except Exception as e:
+            print(f"Aviso: Erro ao ler token do Firestore: {e}")
+
+        # 2. Se não tem cache válido, solicita novo token à API Sophia
         base_url = current_app.config.get('SOPHIA_BASE_URL')
         if not base_url:
             return None
 
         try:
+            print("Renovando token da API Sophia...")
             auth_url = f"{base_url}/api/v1/Autenticacao"
             payload = {
                 "usuario": current_app.config['SOPHIA_USER'],
@@ -51,21 +64,24 @@ def get_sophia_token():
             response.raise_for_status()
             
             new_token = response.text.strip()
-            # Cache por 29 minutos
+            # O token do Sophia dura 30 minutos, renovamos com folga
             expires_at = time.time() + (29 * 60)
             
-            with open(TOKEN_CACHE_FILE, 'w') as f:
-                json.dump({'token': new_token, 'expires_at': expires_at}, f)
+            # 3. Salva o novo token no Firestore
+            doc_ref.set({
+                'token': new_token,
+                'expires_at': expires_at,
+                'updated_at': firestore.SERVER_TIMESTAMP
+            })
                 
             return new_token
         except Exception as e:
-            print(f"Erro ao obter token Sophia: {e}")
+            print(f"Erro crítico ao obter novo token Sophia: {e}")
             return None
 
 def fetch_photo(aluno_id, headers, base_url):
     """
     Busca foto do aluno. Função auxiliar para execução paralela.
-    Recebe base_url como argumento para evitar erro de contexto fora da thread principal.
     """
     try:
         url = f"{base_url}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
@@ -79,24 +95,26 @@ def fetch_photo(aluno_id, headers, base_url):
 
 def search_students(parte_nome, grupo_filtro):
     """
-    Realiza a busca de alunos aplicando regras de negócio:
-    - Filtra por nome (mínimo 2 chars)
-    - Filtra formandos de anos anteriores
-    - Filtra Ensino Médio (se necessário)
-    - Busca fotos em paralelo
+    Realiza a busca de alunos aplicando regras de negócio.
     """
     token = get_sophia_token()
     if not token:
-        raise ConnectionError("Falha na autenticação com Sophia")
+        # Retorna lista vazia ou levanta erro, dependendo da estratégia de UI.
+        # Aqui, logamos e retornamos vazio para não quebrar o frontend.
+        print("Abortando busca: Falha na autenticação com Sophia.")
+        return []
 
-    # Extraímos a URL aqui, dentro do contexto da aplicação (Thread Principal)
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
     
-    # Busca na API
-    resp = requests.get(f"{base_url}/api/v1/alunos", headers=headers, params={"Nome": parte_nome}, timeout=15)
-    resp.raise_for_status()
-    raw_students = resp.json()
+    try:
+        # Busca na API
+        resp = requests.get(f"{base_url}/api/v1/alunos", headers=headers, params={"Nome": parte_nome}, timeout=15)
+        resp.raise_for_status()
+        raw_students = resp.json()
+    except Exception as e:
+        print(f"Erro na requisição ao Sophia: {e}")
+        return []
 
     # Processamento e Filtragem
     ano_vigente = datetime.now().year
@@ -135,10 +153,9 @@ def search_students(parte_nome, grupo_filtro):
                 "fotoUrl": None # Será preenchido depois
             }
 
-    # Busca de fotos em paralelo (Otimização de performance)
+    # Busca de fotos em paralelo
     if alunos_filtrados:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Passamos 'base_url' explicitamente para a função da thread
             futures = {executor.submit(fetch_photo, aid, headers, base_url): aid for aid in alunos_filtrados}
             for future in concurrent.futures.as_completed(futures):
                 aid, foto = future.result()
