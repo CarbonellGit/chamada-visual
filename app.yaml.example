@@ -1,0 +1,23 @@
+runtime: python310
+instance_class: F1
+entrypoint: gunicorn -b :$PORT run:app
+
+# Variáveis de exemplo (Sem dados sensíveis)
+env_variables:
+  FLASK_ENV: "production"
+  ALLOWED_EMAIL_DOMAIN: "@colegiocarbonell.com.br"
+  
+  SOPHIA_TENANT: "CHANGE_ME"
+  SOPHIA_USER: "CHANGE_ME"
+  SOPHIA_PASSWORD: "CHANGE_ME"
+  SOPHIA_API_HOSTNAME: "CHANGE_ME"
+
+  GOOGLE_CLIENT_ID: "CHANGE_ME"
+  GOOGLE_CLIENT_SECRET: "CHANGE_ME"
+  
+  SECRET_KEY: "CHANGE_ME"
+
+handlers:
+- url: /.*
+  script: auto
+  secure: always
