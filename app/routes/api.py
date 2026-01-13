@@ -42,6 +42,39 @@ def buscar_aluno():
         logger.error(f"Exceção não tratada na busca: {e}")
         return jsonify({"erro": "Erro interno ao buscar alunos"}), 500
 
+@bp.route('/buscar-por-id', methods=['GET'])
+@login_required
+def buscar_por_id():
+    """
+    Endpoint para buscar dados detalhados de um aluno específico pelo seu código (ID).
+    
+    Utilizado pela funcionalidade de leitura de QR Code.
+    
+    Query Params:
+        codigo (str): O código do aluno a ser buscado.
+
+    Returns:
+        JSON: Objeto com dados do aluno se encontrado, ou erro 404/400.
+    """
+    student_code = request.args.get('codigo', '').strip()
+    
+    if not student_code:
+        return jsonify({"erro": "Código do aluno não fornecido."}), 400
+
+    try:
+        # Chama o serviço recém-criado
+        aluno = sophia.get_student_by_code(student_code)
+        
+        if aluno:
+            return jsonify(aluno)
+        else:
+            # Retorna 404 para que o frontend saiba que o QR é inválido ou aluno não elegível
+            return jsonify({"erro": "Aluno não encontrado ou não elegível para chamada."}), 404
+            
+    except Exception as e:
+        logger.error(f"Erro interno na busca por ID: {e}")
+        return jsonify({"erro": "Erro interno ao processar QR Code."}), 500
+
 @bp.route('/chamar-aluno', methods=['POST'])
 @login_required
 def chamar_aluno():
