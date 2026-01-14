@@ -158,6 +158,28 @@
         </div>
     </div>
 
+    <div id="responsibles-modal" class="modal-overlay">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Responsáveis & Autorizados</h2>
+                <button class="close-modal-btn" id="close-responsibles-btn">&times;</button>
+            </div>
+
+            <div id="responsibles-list" class="responsibles-grid">
+                <div class="loading-state">
+                    <div class="spinner"></div> Carregando vínculos...
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <p class="info-text">
+                    <span class="indicator authorized"></span> Autorizado
+                    <span class="indicator unauthorized"></span> Não Autorizado
+                </p>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         // --- 1. REFERÊNCIAS ---
         const searchForm = document.getElementById('search-form');
@@ -175,7 +197,7 @@
         // Modais e Switch
         const confirmationModal = document.getElementById('confirmation-modal');
         const qrModal = document.getElementById('qr-modal');
-        const autoCallSwitch = document.getElementById('auto-call-switch'); // NOVO
+        const autoCallSwitch = document.getElementById('auto-call-switch');
 
         const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
         let html5QrcodeScanner = null;
