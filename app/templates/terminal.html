@@ -7,7 +7,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Terminal de Chamada - Colégio Carbonell</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <style>
@@ -15,7 +14,7 @@
             display: flex;
             justify-content: center;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             flex-wrap: wrap;
         }
 
@@ -45,6 +44,14 @@
             border-color: var(--carbonell-amarelo);
         }
 
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 0 5px;
+        }
+
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -67,10 +74,6 @@
             text-align: center;
             max-width: 400px;
             width: 90%;
-        }
-
-        .modal-content h2 {
-            margin-top: 0;
         }
 
         .modal-actions {
@@ -101,28 +104,33 @@
         </header>
 
         <main>
-            <div class="filter-container" id="grupo-filter">
-                <div class="filter-btn"><input type="radio" id="filter-todos" name="grupo" value="todos" checked><label
-                        for="filter-todos">Todos</label></div>
-                <div class="filter-btn"><input type="radio" id="filter-ei" name="grupo" value="EI"><label
-                        for="filter-ei">Ed. Infantil</label></div>
-                <div class="filter-btn"><input type="radio" id="filter-ai" name="grupo" value="AI"><label
-                        for="filter-ai">Anos Iniciais</label></div>
-                <div class="filter-btn"><input type="radio" id="filter-af" name="grupo" value="AF"><label
-                        for="filter-af">Anos Finais</label></div>
+            <div class="controls-row">
+                <div class="filter-container" id="grupo-filter" style="margin-bottom: 0;">
+                    <div class="filter-btn"><input type="radio" id="filter-todos" name="grupo" value="todos"
+                            checked><label for="filter-todos">Todos</label></div>
+                    <div class="filter-btn"><input type="radio" id="filter-ei" name="grupo" value="EI"><label
+                            for="filter-ei">Ed. Infantil</label></div>
+                    <div class="filter-btn"><input type="radio" id="filter-ai" name="grupo" value="AI"><label
+                            for="filter-ai">Anos Iniciais</label></div>
+                    <div class="filter-btn"><input type="radio" id="filter-af" name="grupo" value="AF"><label
+                            for="filter-af">Anos Finais</label></div>
+                </div>
+
+                <div class="switch-wrapper" title="Se ativado, chama o aluno assim que ler o QR Code">
+                    <span class="switch-label-text">QR Automático:</span>
+                    <label class="switch">
+                        <input type="checkbox" id="auto-call-switch">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
             </div>
 
             <form class="search-bar" id="search-form">
-                <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar..."
-                    autocomplete="off">
-
-                <button type="button" class="btn" id="clear-search-btn" aria-label="Limpar campo de busca">🗑️</button>
+                <input type="text" id="search-input" placeholder="Digite o nome do aluno..." autocomplete="off">
+                <button type="button" class="btn" id="clear-search-btn">🗑️</button>
                 <button type="submit" class="btn" id="search-btn">Buscar</button>
-
-                <button type="button" class="btn" id="qr-btn" aria-label="Ler QR Code com Câmera"
-                    title="Escanear QR Code">📷</button>
-
-                <button type="button" class="btn" id="mic-btn" aria-label="Iniciar busca por voz">🎤</button>
+                <button type="button" class="btn" id="qr-btn" title="Escanear QR Code">📷</button>
+                <button type="button" class="btn" id="mic-btn">🎤</button>
             </form>
             <div id="search-results"></div>
         </main>
@@ -131,11 +139,10 @@
     <div id="confirmation-modal" class="modal-overlay">
         <div class="modal-content">
             <h2>Confirmar Ação</h2>
-            <p>Tem certeza que deseja limpar TODOS os painéis (Infantil e Fundamental)? Esta ação não pode ser desfeita.
-            </p>
+            <p>Tem certeza que deseja limpar TODOS os painéis?</p>
             <div class="modal-actions">
                 <button id="modal-cancel-btn" class="btn">Cancelar</button>
-                <button id="modal-confirm-btn" class="btn btn-danger">Confirmar Limpeza</button>
+                <button id="modal-confirm-btn" class="btn btn-danger">Confirmar</button>
             </div>
         </div>
     </div>
@@ -143,10 +150,8 @@
     <div id="qr-modal" class="modal-overlay">
         <div class="modal-content modal-qr-content">
             <h2>Escanear Carteirinha</h2>
-            <p class="instruction-text">Aponte o código QR do aluno para a câmera.</p>
-
+            <p class="instruction-text">Aponte o código QR do aluno.</p>
             <div id="qr-reader" class="qr-reader-container"></div>
-
             <div class="modal-actions">
                 <button id="close-qr-btn" class="btn btn-danger">Fechar Câmera</button>
             </div>
@@ -154,34 +159,33 @@
     </div>
 
     <script type="module">
-        // Importações e Referências
+        // --- 1. REFERÊNCIAS ---
         const searchForm = document.getElementById('search-form');
         const searchInput = document.getElementById('search-input');
-        const micBtn = document.getElementById('mic-btn');
         const searchResultsContainer = document.getElementById('search-results');
-        const clearAllBtn = document.getElementById('clear-all-btn');
-        const searchBtn = document.getElementById('search-btn');
-        const clearSearchBtn = document.getElementById('clear-search-btn');
-        const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
-        const confirmationModal = document.getElementById('confirmation-modal');
-        const modalConfirmBtn = document.getElementById('modal-confirm-btn');
-        const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const toastContainer = document.getElementById('toast-container');
 
-        // Referências QR Code
+        // Botões
+        const searchBtn = document.getElementById('search-btn');
         const qrBtn = document.getElementById('qr-btn');
-        const qrModal = document.getElementById('qr-modal');
-        const closeQrBtn = document.getElementById('close-qr-btn');
-        let html5QrcodeScanner = null; // Variável para controlar a instância do scanner
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const clearSearchBtn = document.getElementById('clear-search-btn');
+        const micBtn = document.getElementById('mic-btn');
 
-        // --- SISTEMA DE TOAST (UX) ---
+        // Modais e Switch
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const qrModal = document.getElementById('qr-modal');
+        const autoCallSwitch = document.getElementById('auto-call-switch'); // NOVO
+
+        const defaultAvatar = "https://www.gravatar.com/avatar/0?d=mp&f=y";
+        let html5QrcodeScanner = null;
+
+        // --- 2. UTILITÁRIOS (Toast e Loading) ---
         const showToast = (message, type = 'info') => {
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
             toast.textContent = message;
-
             toastContainer.appendChild(toast);
-
             setTimeout(() => {
                 toast.classList.add('hiding');
                 toast.addEventListener('animationend', () => toast.remove());
@@ -199,260 +203,205 @@
             }
         };
 
-        // --- LÓGICA DE QR CODE (NOVO) ---
-
-        const stopScanner = async () => {
-            if (html5QrcodeScanner) {
-                try {
-                    await html5QrcodeScanner.stop();
-                    html5QrcodeScanner.clear();
-                    html5QrcodeScanner = null;
-                } catch (err) {
-                    console.error("Erro ao parar scanner:", err);
-                }
-            }
-            qrModal.style.display = 'none';
-        };
-
-        const handleQrCodeScanned = async (decodedText, decodedResult) => {
-            console.log(`Código escaneado: ${decodedText}`);
-
-            // 1. Pausa o scanner e fecha modal para feedback imediato
-            await stopScanner();
-            showToast('Código lido! Buscando aluno...', 'info');
-
-            try {
-                // 2. Busca os dados do aluno pelo ID
-                const response = await fetch(`/api/buscar-por-id?codigo=${decodedText}`);
-
-                if (response.status === 404) {
-                    showToast('Aluno não encontrado ou não autorizado.', 'error');
-                    return;
-                }
-
-                if (!response.ok) throw new Error('Erro na API');
-
-                const studentData = await response.json();
-
-                // 3. Chamada Automática (Requisito: "automaticamente o aluno seja chamado")
-                // Reutiliza a função callStudent existente
-                // Criamos um botão falso temporário apenas para manter a assinatura da função callStudent
-                const tempBtn = document.createElement('button');
-
-                await callStudent(studentData, tempBtn);
-
-                // Feedback visual extra
-                // Como callStudent já exibe toast, não precisamos duplicar muito, 
-                // mas podemos limpar a busca anterior para focar no chamado.
-                searchInput.value = '';
-                searchResultsContainer.innerHTML = '';
-
-            } catch (error) {
-                console.error("Erro no fluxo QR:", error);
-                showToast('Erro ao processar o código QR.', 'error');
-            }
-        };
-
-        const startScanner = () => {
-            qrModal.style.display = 'flex';
-
-            // Cria instância se não existir
-            if (!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5Qrcode("qr-reader");
-            }
-
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
-            // Prioriza câmera traseira ("environment")
-            html5QrcodeScanner.start(
-                { facingMode: "environment" },
-                config,
-                handleQrCodeScanned,
-                (errorMessage) => {
-                    // Erros de varredura contínua são comuns (quando não acha QR), ignoramos log para não poluir
-                }
-            ).catch(err => {
-                console.error("Erro ao iniciar câmera:", err);
-                showToast('Não foi possível acessar a câmera.', 'error');
-                qrModal.style.display = 'none';
-            });
-        };
-
-        // --- FIM LÓGICA QR CODE ---
-
+        // --- 3. RENDERIZAÇÃO (Com Badge) ---
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
             if (students.length === 0) {
                 searchResultsContainer.innerHTML = '<p style="text-align: center; color: white;">Nenhum aluno encontrado.</p>';
                 return;
             }
+
             students.forEach(student => {
                 const studentDiv = document.createElement('div');
                 studentDiv.className = 'student-result-item';
+
                 let photoSrc = defaultAvatar;
                 if (student.fotoUrl) {
                     photoSrc = student.fotoUrl.startsWith('data:image') ? student.fotoUrl : `data:image/jpeg;base64,${student.fotoUrl}`;
                 }
+
+                // Lógica do Badge (Contador)
+                const chamadosHoje = student.chamados_hoje || 0;
+                let badgeHTML = '';
+                if (chamadosHoje > 0) {
+                    badgeHTML = `<div class="call-count-badge" title="Chamado ${chamadosHoje} vezes hoje">${chamadosHoje}</div>`;
+                }
+
                 studentDiv.innerHTML = `
-                    <img src="${photoSrc}" alt="Foto de ${student.nomeCompleto}" class="student-photo-small">
+                    <img src="${photoSrc}" alt="Foto" class="student-photo-small">
                     <div class="student-info">
                         <span class="student-name">${student.nomeCompleto}</span>
                         <span class="student-class">${student.turma}</span>
                     </div>
+                    ${badgeHTML}
                     <button class="btn btn-action">Chamar</button>
                 `;
 
-                studentDiv.querySelector('.btn-action').addEventListener('click', (event) => {
-                    const studentDataForCall = {
-                        id: student.id,
-                        nomeCompleto: student.nomeCompleto,
-                        turma: student.turma,
-                        fotoUrl: photoSrc
-                    };
-                    callStudent(studentDataForCall, event.target);
+                // Evento de clique no botão "Chamar"
+                const btnAction = studentDiv.querySelector('.btn-action');
+                btnAction.addEventListener('click', () => {
+                    const studentData = { ...student, fotoUrl: photoSrc };
+                    callStudent(studentData, btnAction, studentDiv); // Passamos a div para atualizar o badge
                 });
+
                 searchResultsContainer.appendChild(studentDiv);
             });
         };
 
+        // --- 4. FUNÇÕES DE API ---
         const fetchStudents = async (searchTerm) => {
-            const cleanedSearchTerm = searchTerm.trim();
-            if (cleanedSearchTerm.length < 2) {
-                showToast('Digite pelo menos 2 letras para buscar.', 'info');
-                return;
-            }
+            if (searchTerm.trim().length < 2) { showToast('Digite ao menos 2 letras.', 'info'); return; }
 
-            const selectedGrupo = document.querySelector('input[name="grupo"]:checked').value;
-            setLoading(searchBtn, true, 'Buscando...');
-            searchResultsContainer.innerHTML = '';
+            setLoading(searchBtn, true, '...');
+            const grupo = document.querySelector('input[name="grupo"]:checked').value;
 
             try {
-                const url = `/api/buscar-aluno?parteNome=${encodeURIComponent(cleanedSearchTerm)}&grupo=${selectedGrupo}`;
-                const response = await fetch(url);
-                const students = await response.json();
-                displayResults(students);
-            } catch (error) {
-                console.error('Erro ao buscar alunos:', error);
-                showToast('Erro ao conectar com o servidor.', 'error');
+                const res = await fetch(`/api/buscar-aluno?parteNome=${encodeURIComponent(searchTerm)}&grupo=${grupo}`);
+                const data = await res.json();
+                displayResults(data);
+            } catch (e) {
+                console.error(e);
+                showToast('Erro na busca.', 'error');
             } finally {
                 setLoading(searchBtn, false, 'Buscar');
             }
         };
 
-        const callStudent = async (studentData, buttonElement) => {
-            const originalText = buttonElement.textContent || "Chamar";
-
-            // Só altera visual se for um botão visível
-            if (buttonElement.style) {
-                setLoading(buttonElement, true, "Chamando...");
-            }
+        const callStudent = async (studentData, btnElement, containerDiv = null) => {
+            // Se o botão não existir (chamada auto), simulamos um objeto dummy
+            const isAuto = !btnElement || !btnElement.style;
+            if (!isAuto) setLoading(btnElement, true, "...");
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
             try {
-                const response = await fetch('/api/chamar-aluno', {
+                const res = await fetch('/api/chamar-aluno', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                     body: JSON.stringify(studentData)
                 });
 
-                if (response.ok) {
-                    if (buttonElement.style) {
-                        buttonElement.innerHTML = "✓ Chamado!";
-                        buttonElement.style.backgroundColor = '#28a745';
-                    }
-                    showToast(`Aluno ${studentData.nomeCompleto} chamado com sucesso!`, 'success');
+                if (res.ok) {
+                    const jsonRes = await res.json();
+                    showToast(`${studentData.nomeCompleto} chamado!`, 'success');
 
-                    if (buttonElement.style) {
+                    if (!isAuto) {
+                        btnElement.innerHTML = "✓";
+                        btnElement.style.backgroundColor = '#28a745';
                         setTimeout(() => {
-                            buttonElement.disabled = false;
-                            buttonElement.textContent = "Chamar"; // Reseta texto padrão
-                            buttonElement.style.backgroundColor = '';
+                            btnElement.disabled = false;
+                            btnElement.textContent = "Chamar";
+                            btnElement.style.backgroundColor = '';
                         }, 2000);
                     }
-                } else {
-                    throw new Error("Falha no servidor");
-                }
-            } catch (error) {
-                console.error('Erro ao chamar aluno:', error);
-                if (buttonElement.style) {
-                    buttonElement.textContent = "Erro!";
-                    buttonElement.style.backgroundColor = '#dc3545';
-                }
-                showToast('Não foi possível chamar o aluno.', 'error');
 
-                if (buttonElement.style) {
+                    // Atualiza o Badge visualmente se tivermos referência do container
+                    if (containerDiv && jsonRes.nova_contagem) {
+                        let badge = containerDiv.querySelector('.call-count-badge');
+                        if (!badge) {
+                            // Cria se não existe
+                            badge = document.createElement('div');
+                            badge.className = 'call-count-badge';
+                            // Insere antes do botão
+                            containerDiv.insertBefore(badge, containerDiv.lastElementChild);
+                        }
+                        badge.textContent = jsonRes.nova_contagem;
+                        badge.title = `Chamado ${jsonRes.nova_contagem} vezes hoje`;
+                    }
+
+                } else {
+                    throw new Error();
+                }
+            } catch (e) {
+                showToast('Erro ao chamar.', 'error');
+                if (!isAuto) {
+                    btnElement.textContent = "Erro";
+                    btnElement.style.backgroundColor = '#dc3545';
                     setTimeout(() => {
-                        buttonElement.disabled = false;
-                        buttonElement.textContent = "Chamar";
-                        buttonElement.style.backgroundColor = '';
-                    }, 3000);
+                        btnElement.disabled = false;
+                        btnElement.textContent = "Chamar";
+                        btnElement.style.backgroundColor = '';
+                    }, 2000);
                 }
             }
         };
 
-        const executeClearAll = async () => {
-            setLoading(modalConfirmBtn, true, "Limpando...");
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        // --- 5. LÓGICA DE QR CODE INTELIGENTE ---
+        const stopScanner = async () => {
+            if (html5QrcodeScanner) {
+                try { await html5QrcodeScanner.stop(); html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
+                catch (e) { }
+            }
+            qrModal.style.display = 'none';
+        };
+
+        const handleQrCodeScanned = async (decodedText) => {
+            await stopScanner(); // Para a câmera
+
+            const isAuto = autoCallSwitch.checked; // Verifica estado do Switch
+
+            if (isAuto) {
+                showToast('QR lido! Chamando automático...', 'info');
+            } else {
+                showToast('QR lido! Buscando dados...', 'info');
+            }
 
             try {
-                const response = await fetch('/api/limpar-paineis', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
-                });
+                const res = await fetch(`/api/buscar-por-id?codigo=${decodedText}`);
+                if (res.status === 404) { showToast('Aluno não encontrado.', 'error'); return; }
+                if (!res.ok) throw new Error();
 
-                if (response.ok) {
-                    showToast('Todos os painéis foram limpos com sucesso!', 'success');
+                const studentData = await res.json();
+
+                if (isAuto) {
+                    // Modo Automático: Chama direto
+                    await callStudent(studentData, null, null);
                 } else {
-                    throw new Error("Falha no servidor");
+                    // Modo Manual: Mostra o card na tela
+                    displayResults([studentData]);
+                    // Limpa campo de busca para focar no resultado
+                    searchInput.value = '';
                 }
-            } catch (error) {
-                console.error("Erro ao limpar os painéis: ", error);
-                showToast('Ocorreu um erro ao tentar limpar os painéis.', 'error');
-            } finally {
-                setLoading(modalConfirmBtn, false, "Confirmar Limpeza");
-                confirmationModal.style.display = 'none';
+
+            } catch (e) {
+                showToast('Erro ao processar QR.', 'error');
             }
         };
 
-        const handleVoiceSearch = () => { showToast('Busca por voz em desenvolvimento!', 'info'); };
+        const startScanner = () => {
+            qrModal.style.display = 'flex';
+            if (!html5QrcodeScanner) html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, handleQrCodeScanned)
+                .catch(() => { showToast('Erro na câmera.', 'error'); qrModal.style.display = 'none'; });
+        };
 
-        searchForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            fetchStudents(searchInput.value);
+        // --- 6. EVENTOS GERAIS ---
+        searchForm.addEventListener('submit', (e) => { e.preventDefault(); fetchStudents(searchInput.value); });
+        clearSearchBtn.addEventListener('click', () => { searchInput.value = ''; searchResultsContainer.innerHTML = ''; searchInput.focus(); });
+        clearAllBtn.addEventListener('click', () => document.getElementById('confirmation-modal').style.display = 'flex');
+
+        // Botões Modais
+        document.getElementById('modal-cancel-btn').addEventListener('click', () => document.getElementById('confirmation-modal').style.display = 'none');
+        document.getElementById('modal-confirm-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('modal-confirm-btn');
+            setLoading(btn, true, "...");
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            try {
+                await fetch('/api/limpar-paineis', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken } });
+                showToast('Painéis limpos!', 'success');
+            } catch (e) { showToast('Erro ao limpar.', 'error'); }
+            finally { setLoading(btn, false, "Confirmar"); document.getElementById('confirmation-modal').style.display = 'none'; }
         });
 
-        clearSearchBtn.addEventListener('click', () => {
-            searchInput.value = '';
-            searchResultsContainer.innerHTML = '';
-            searchInput.focus();
+        // Fechar modais clicando fora
+        window.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('confirmation-modal')) document.getElementById('confirmation-modal').style.display = 'none';
+            if (e.target === qrModal) stopScanner();
         });
 
-        micBtn.addEventListener('click', handleVoiceSearch);
-
-        clearAllBtn.addEventListener('click', () => {
-            confirmationModal.style.display = 'flex';
-        });
-
-        modalCancelBtn.addEventListener('click', () => {
-            confirmationModal.style.display = 'none';
-        });
-
-        modalConfirmBtn.addEventListener('click', () => {
-            executeClearAll();
-        });
-
-        window.addEventListener('click', (event) => {
-            if (event.target === confirmationModal) confirmationModal.style.display = 'none';
-            if (event.target === qrModal) stopScanner();
-        });
-
-        // Eventos QR Code
         qrBtn.addEventListener('click', startScanner);
-        closeQrBtn.addEventListener('click', stopScanner);
+        document.getElementById('close-qr-btn').addEventListener('click', stopScanner);
+        micBtn.addEventListener('click', () => showToast('Em breve!', 'info'));
 
     </script>
 </body>
