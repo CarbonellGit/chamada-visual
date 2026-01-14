@@ -1,6 +1,7 @@
 import logging
 import concurrent.futures
-from flask import Blueprint, request, jsonify, session
+import base64
+from flask import Blueprint, request, jsonify, session, Response
 from app.services import sophia, firestore
 from functools import wraps
 
@@ -104,3 +105,58 @@ def limpar_paineis():
         return jsonify({"sucesso": True})
     else:
         return jsonify({"erro": "Falha ao limpar painéis"}), 500
+
+# --- NOVAS ROTAS PARA RESPONSÁVEIS ---
+
+@bp.route('/aluno/<student_id>/responsaveis', methods=['GET'])
+@login_required
+def listar_responsaveis(student_id):
+    """
+    Retorna a lista de responsáveis de um aluno específico.
+    """
+    if not student_id:
+        return jsonify({"erro": "ID do aluno necessário"}), 400
+
+    try:
+        responsaveis = sophia.get_student_responsibles(student_id)
+        # Se retornar lista vazia, o front tratará mostrando aviso
+        return jsonify(responsaveis)
+    except Exception as e:
+        logger.error(f"Erro na rota de responsáveis: {e}")
+        return jsonify({"erro": "Erro interno ao buscar responsáveis"}), 500
+
+@bp.route('/responsavel/<resp_id>/foto', methods=['GET'])
+@login_required
+def foto_responsavel(resp_id):
+    """
+    Proxy para a foto do responsável.
+    Decodifica o Base64 do Sophia e retorna como imagem binária (blob).
+    """
+    try:
+        b64_string = sophia.get_responsible_photo_base64(resp_id)
+        
+        if not b64_string:
+            # Retorna 404 para que o frontend possa exibir uma imagem padrão (placeholder)
+            return jsonify({"erro": "Foto não encontrada"}), 404
+
+        # Tratamento robusto do Base64 (ex: "data:image/jpeg;base64,/9j/4AAQ...")
+        # Separa o cabeçalho "data:..." do conteúdo real se existir
+        if ',' in b64_string:
+            header, encoded = b64_string.split(',', 1)
+            # Tenta extrair o mime type dinamicamente (ex: image/png ou image/jpeg)
+            try:
+                mime_type = header.split(':')[1].split(';')[0]
+            except IndexError:
+                mime_type = 'image/jpeg'
+        else:
+            # Fallback caso a API retorne a string crua sem cabeçalho
+            encoded = b64_string
+            mime_type = 'image/jpeg'
+
+        img_data = base64.b64decode(encoded)
+        
+        return Response(img_data, mimetype=mime_type)
+        
+    except Exception as e:
+        logger.error(f"Erro no proxy de foto do responsável {resp_id}: {e}")
+        return jsonify({"erro": "Falha ao processar imagem"}), 500
