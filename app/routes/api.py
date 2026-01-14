@@ -18,7 +18,7 @@ def login_required(f):
     return decorated_function
 
 def enrich_with_call_count(aluno):
-    """Função auxiliar para injetar a contagem de chamadas no objeto aluno."""
+    """Injeta contagem atual no objeto aluno."""
     try:
         count = firestore.get_student_call_count(aluno['id'], aluno['turma'])
         aluno['chamados_hoje'] = count
@@ -37,13 +37,11 @@ def buscar_aluno():
         return jsonify([])
 
     try:
-        # 1. Busca no Sophia (já vem com fotos)
         alunos = sophia.search_students(parte_nome, grupo)
         
-        # 2. Enriquece com contagem do Firestore (Paralelismo para performance)
+        # Enriquece com contagem em paralelo
         if alunos:
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                # Mapeia a execução da função de contagem para cada aluno
                 list(executor.map(enrich_with_call_count, alunos))
 
         return jsonify(alunos)
@@ -60,11 +58,9 @@ def buscar_por_id():
         return jsonify({"erro": "Código não fornecido"}), 400
 
     try:
-        # 1. Busca no Sophia
         aluno = sophia.get_student_by_code(student_code)
         
         if aluno:
-            # 2. Enriquece com contagem (sem thread pool pois é só 1)
             enrich_with_call_count(aluno)
             return jsonify(aluno)
         else:
@@ -80,12 +76,23 @@ def chamar_aluno():
     data = request.get_json()
     if not data:
         return jsonify({"erro": "Dados inválidos"}), 400
+    
+    # 1. Obtém a contagem ATUAL (antes de inserir o novo)
+    # Isso garante que pegamos o número consolidado no banco.
+    contagem_previa = 0
+    try:
+        contagem_previa = firestore.get_student_call_count(data.get('id'), data.get('turma'))
+    except Exception:
+        pass
         
+    # 2. Registra o novo chamado
     sucesso = firestore.call_student(data)
+    
     if sucesso:
-        # Retorna a nova contagem para atualizar o frontend imediatamente
-        nova_contagem = firestore.get_student_call_count(data.get('id'), data.get('turma'))
-        return jsonify({"sucesso": True, "nova_contagem": nova_contagem})
+        # 3. Retorna a contagem prévia + 1
+        # Matemática simples vence latência de banco de dados.
+        nova_contagem_real = contagem_previa + 1
+        return jsonify({"sucesso": True, "nova_contagem": nova_contagem_real})
     else:
         return jsonify({"erro": "Falha ao registrar chamada"}), 500
 
