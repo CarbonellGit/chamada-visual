@@ -226,6 +226,7 @@
         };
 
         // --- 3. RENDERIZAÇÃO (Com Badge) ---
+        // --- 3. RENDERIZAÇÃO (Atualizada com Botão de Responsáveis) ---
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
             if (students.length === 0) {
@@ -242,13 +243,13 @@
                     photoSrc = student.fotoUrl.startsWith('data:image') ? student.fotoUrl : `data:image/jpeg;base64,${student.fotoUrl}`;
                 }
 
-                // Lógica do Badge (Contador)
                 const chamadosHoje = student.chamados_hoje || 0;
                 let badgeHTML = '';
                 if (chamadosHoje > 0) {
                     badgeHTML = `<div class="call-count-badge" title="Chamado ${chamadosHoje} vezes hoje">${chamadosHoje}</div>`;
                 }
 
+                // ADIÇÃO: Botão "Ver Responsáveis" (btn-resp)
                 studentDiv.innerHTML = `
                     <img src="${photoSrc}" alt="Foto" class="student-photo-small">
                     <div class="student-info">
@@ -256,19 +257,95 @@
                         <span class="student-class">${student.turma}</span>
                     </div>
                     ${badgeHTML}
-                    <button class="btn btn-action">Chamar</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-resp" title="Ver Responsáveis" style="background-color: #17a2b8; color: white; padding: 0 15px;">👥</button>
+                        <button class="btn btn-action">Chamar</button>
+                    </div>
                 `;
 
-                // Evento de clique no botão "Chamar"
+                // Evento: Botão Chamar
                 const btnAction = studentDiv.querySelector('.btn-action');
                 btnAction.addEventListener('click', () => {
                     const studentData = { ...student, fotoUrl: photoSrc };
-                    callStudent(studentData, btnAction, studentDiv); // Passamos a div para atualizar o badge
+                    callStudent(studentData, btnAction, studentDiv);
+                });
+
+                // Evento: Botão Responsáveis (NOVO)
+                const btnResp = studentDiv.querySelector('.btn-resp');
+                btnResp.addEventListener('click', (e) => {
+                    e.preventDefault(); // Evita submits acidentais
+                    openResponsiblesModal(student.id);
                 });
 
                 searchResultsContainer.appendChild(studentDiv);
             });
         };
+
+        // --- 3.1 LÓGICA DO MODAL DE RESPONSÁVEIS (NOVO) ---
+        const responsiblesModal = document.getElementById('responsibles-modal');
+        const responsiblesList = document.getElementById('responsibles-list');
+        const closeResponsiblesBtn = document.getElementById('close-responsibles-btn');
+
+        const openResponsiblesModal = async (studentId) => {
+            // Abre o modal e mostra loading
+            responsiblesModal.style.display = 'flex';
+            responsiblesList.innerHTML = '<div class="loading-state"><div class="spinner"></div> Carregando vínculos...</div>';
+
+            try {
+                // Busca na API que criamos
+                const res = await fetch(`/api/aluno/${studentId}/responsaveis`);
+
+                if (!res.ok) throw new Error("Falha na API");
+
+                const data = await res.json();
+                renderResponsibles(data);
+
+            } catch (e) {
+                console.error(e);
+                responsiblesList.innerHTML = '<p style="text-align:center; color: #dc3545; padding: 20px;">Erro ao carregar dados dos responsáveis.</p>';
+            }
+        };
+
+        const renderResponsibles = (list) => {
+            responsiblesList.innerHTML = ''; // Limpa loading
+
+            if (!list || list.length === 0) {
+                responsiblesList.innerHTML = '<p style="text-align:center; color: #666; padding: 20px; grid-column: 1/-1;">Nenhum responsável ou autorizado encontrado para este aluno.</p>';
+                return;
+            }
+
+            list.forEach(resp => {
+                const card = document.createElement('div');
+                // Adiciona classe baseada na autorização (verde/vermelho)
+                card.className = `responsible-card status-${resp.autorizado ? 'authorized' : 'unauthorized'}`;
+
+                // URL do Proxy de Imagem
+                const photoUrl = `/api/responsavel/${resp.id}/foto`;
+
+                card.innerHTML = `
+                    <div class="resp-photo-container">
+                        <img src="${photoUrl}" 
+                             alt="${resp.nome}" 
+                             class="resp-photo" 
+                             onerror="this.onerror=null; this.src='https://www.gravatar.com/avatar/0?d=mp&f=y&s=150';">
+                    </div>
+                    <span class="resp-name">${resp.nome}</span>
+                    <span class="resp-relation">${resp.vinculo}</span>
+                `;
+                responsiblesList.appendChild(card);
+            });
+        };
+
+        // Eventos de Fechamento do Modal de Responsáveis
+        closeResponsiblesBtn.addEventListener('click', () => responsiblesModal.style.display = 'none');
+
+        // Fecha ao clicar fora (Overlay)
+        window.addEventListener('click', (e) => {
+            if (e.target === responsiblesModal) responsiblesModal.style.display = 'none';
+            // Mantém a lógica existente para os outros modais
+            if (e.target === document.getElementById('confirmation-modal')) document.getElementById('confirmation-modal').style.display = 'none';
+            if (e.target === document.getElementById('qr-modal')) stopScanner();
+        });
 
         // --- 4. FUNÇÕES DE API ---
         const fetchStudents = async (searchTerm) => {
