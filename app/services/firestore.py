@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, time
 from firebase_admin import firestore
 from flask import current_app
 
@@ -8,15 +9,8 @@ logger = logging.getLogger(__name__)
 def get_db():
     """
     Recupera a instância do cliente Firestore ativa.
-    
-    Tenta obter o cliente do contexto global da aplicação Flask (`current_app.db`).
-    Se não estiver em um contexto de app (ex: script isolado), cria uma nova instância.
-
-    Returns:
-        google.cloud.firestore.Client | None: Cliente do Firestore ou None em caso de erro.
     """
     try:
-        # Se estivermos dentro de um contexto de requisição Flask
         if current_app:
             return getattr(current_app, 'db', firestore.client())
         return firestore.client()
@@ -24,54 +18,96 @@ def get_db():
         logger.error(f"Erro ao obter cliente Firestore: {e}")
         return None
 
+def _get_collection_name(turma):
+    """
+    Define a coleção baseada na turma (Lógica centralizada).
+    """
+    turma = turma.strip().upper()
+    if turma.startswith('EI') or turma.startswith('G'): # G para G1, G2... se houver
+        return "chamados_ei"
+    elif 'AI' in turma or 'AF' in turma:
+        return "chamados_fund"
+    return "chamados"
+
 def call_student(student_data):
     """
-    Registra a solicitação de chamada de um aluno na coleção apropriada do Firestore.
-
-    A função determina a coleção de destino com base na turma do aluno:
-    - Turmas iniciando com 'EI' -> `chamados_ei` (Educação Infantil)
-    - Turmas contendo 'AI' ou 'AF' -> `chamados_fund` (Ensino Fundamental)
-    - Outros -> `chamados` (Padrão)
-
-    Args:
-        student_data (dict): Dicionário contendo os dados do aluno (nome, turma, foto, etc).
-
-    Returns:
-        bool: True se o registro foi salvo com sucesso, False caso contrário.
+    Registra a solicitação de chamada de um aluno.
     """
     db = get_db()
     if not db:
         logger.error("Tentativa de chamar aluno falhou: Firestore não inicializado.")
         return False
 
-    turma = student_data.get("turma", "").strip().upper()
-    
-    collection_name = "chamados"
-    if turma.startswith('EI'):
-        collection_name = "chamados_ei"
-    elif 'AI' in turma or 'AF' in turma:
-        collection_name = "chamados_fund"
+    turma = student_data.get("turma", "")
+    collection_name = _get_collection_name(turma)
 
     try:
+        # Adiciona timestamp do servidor
         student_data['timestamp'] = firestore.SERVER_TIMESTAMP
+        # Adiciona data legível para facilitar auditoria futura (opcional, mas útil)
+        student_data['data_chamada'] = datetime.now().strftime("%Y-%m-%d")
+        
         db.collection(collection_name).add(student_data)
-        logger.info(f"Aluno {student_data.get('nomeCompleto')} adicionado com sucesso em {collection_name}")
+        logger.info(f"Aluno {student_data.get('nomeCompleto')} adicionado em {collection_name}")
         return True
     except Exception as e:
         logger.error(f"Erro ao salvar no Firestore: {e}")
         return False
 
+def get_student_call_count(student_id, turma):
+    """
+    Conta quantas vezes o aluno foi chamado HOJE.
+    
+    Args:
+        student_id (str): ID do aluno.
+        turma (str): Turma do aluno (para saber qual coleção consultar).
+        
+    Returns:
+        int: Número de chamadas realizadas hoje.
+    """
+    db = get_db()
+    if not db: return 0
+
+    collection_name = _get_collection_name(turma)
+    
+    # Define o início do dia atual (00:00:00)
+    now = datetime.now()
+    start_of_day = datetime.combine(now.date(), time.min)
+
+    try:
+        # Consulta: Onde ID é igual E timestamp é maior que hoje 00:00
+        # Nota: O Firestore exige índice composto para consultas com filtro de igualdade + desigualdade.
+        # Se der erro de índice, o link para criar aparecerá no log do console.
+        # Alternativa simples sem índice: Filtrar apenas por data_chamada (string) se criado acima,
+        # ou filtrar no código se o volume for baixo. 
+        # Vamos tentar a query direta pelo ID e filtrar em memória os de hoje (mais seguro sem criar indices complexos agora).
+        
+        docs = db.collection(collection_name).where("id", "==", str(student_id)).stream()
+        
+        count = 0
+        for doc in docs:
+            data = doc.to_dict()
+            # Verifica se o timestamp é de hoje
+            # O timestamp do Firestore vem como objeto datetime com timezone ou similar
+            ts = data.get('timestamp')
+            if ts:
+                # Se for datetime, compara. Se for server_timestamp pendente, assume agora.
+                try:
+                    # Converte para naive datetime para comparação simples ou compara date()
+                    ts_date = ts.date() if hasattr(ts, 'date') else ts.today().date()
+                    if ts_date == now.date():
+                        count += 1
+                except:
+                    pass
+                    
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar chamadas para {student_id}: {e}")
+        return 0
+
 def clear_all_panels():
     """
-    Limpa todos os registros de chamados ativos em todas as coleções do sistema.
-
-    Itera sobre as coleções `chamados`, `chamados_ei` e `chamados_fund`,
-    deletando documento por documento.
-    
-    Atenção: Esta é uma operação destrutiva e irreversível.
-
-    Returns:
-        bool: True se a limpeza foi completa, False se houver erro.
+    Limpa todos os registros de chamados ativos.
     """
     db = get_db()
     if not db: return False
