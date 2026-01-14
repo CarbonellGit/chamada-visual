@@ -7,6 +7,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Terminal de Chamada - Colégio Carbonell</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
     <style>
         .filter-container {
             display: flex;
@@ -112,8 +115,13 @@
             <form class="search-bar" id="search-form">
                 <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar..."
                     autocomplete="off">
+
                 <button type="button" class="btn" id="clear-search-btn" aria-label="Limpar campo de busca">🗑️</button>
                 <button type="submit" class="btn" id="search-btn">Buscar</button>
+
+                <button type="button" class="btn" id="qr-btn" aria-label="Ler QR Code com Câmera"
+                    title="Escanear QR Code">📷</button>
+
                 <button type="button" class="btn" id="mic-btn" aria-label="Iniciar busca por voz">🎤</button>
             </form>
             <div id="search-results"></div>
@@ -132,10 +140,21 @@
         </div>
     </div>
 
-    <script type="module">
-        // Importações
-        // Nenhuma lógica de banco de dados no frontend necessária aqui, apenas chamadas de API
+    <div id="qr-modal" class="modal-overlay">
+        <div class="modal-content modal-qr-content">
+            <h2>Escanear Carteirinha</h2>
+            <p class="instruction-text">Aponte o código QR do aluno para a câmera.</p>
 
+            <div id="qr-reader" class="qr-reader-container"></div>
+
+            <div class="modal-actions">
+                <button id="close-qr-btn" class="btn btn-danger">Fechar Câmera</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Importações e Referências
         const searchForm = document.getElementById('search-form');
         const searchInput = document.getElementById('search-input');
         const micBtn = document.getElementById('mic-btn');
@@ -149,6 +168,12 @@
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const toastContainer = document.getElementById('toast-container');
 
+        // Referências QR Code
+        const qrBtn = document.getElementById('qr-btn');
+        const qrModal = document.getElementById('qr-modal');
+        const closeQrBtn = document.getElementById('close-qr-btn');
+        let html5QrcodeScanner = null; // Variável para controlar a instância do scanner
+
         // --- SISTEMA DE TOAST (UX) ---
         const showToast = (message, type = 'info') => {
             const toast = document.createElement('div');
@@ -157,7 +182,6 @@
 
             toastContainer.appendChild(toast);
 
-            // Remove o toast após 4 segundos
             setTimeout(() => {
                 toast.classList.add('hiding');
                 toast.addEventListener('animationend', () => toast.remove());
@@ -174,6 +198,87 @@
                 btn.textContent = btn.dataset.originalText || text;
             }
         };
+
+        // --- LÓGICA DE QR CODE (NOVO) ---
+
+        const stopScanner = async () => {
+            if (html5QrcodeScanner) {
+                try {
+                    await html5QrcodeScanner.stop();
+                    html5QrcodeScanner.clear();
+                    html5QrcodeScanner = null;
+                } catch (err) {
+                    console.error("Erro ao parar scanner:", err);
+                }
+            }
+            qrModal.style.display = 'none';
+        };
+
+        const handleQrCodeScanned = async (decodedText, decodedResult) => {
+            console.log(`Código escaneado: ${decodedText}`);
+
+            // 1. Pausa o scanner e fecha modal para feedback imediato
+            await stopScanner();
+            showToast('Código lido! Buscando aluno...', 'info');
+
+            try {
+                // 2. Busca os dados do aluno pelo ID
+                const response = await fetch(`/api/buscar-por-id?codigo=${decodedText}`);
+
+                if (response.status === 404) {
+                    showToast('Aluno não encontrado ou não autorizado.', 'error');
+                    return;
+                }
+
+                if (!response.ok) throw new Error('Erro na API');
+
+                const studentData = await response.json();
+
+                // 3. Chamada Automática (Requisito: "automaticamente o aluno seja chamado")
+                // Reutiliza a função callStudent existente
+                // Criamos um botão falso temporário apenas para manter a assinatura da função callStudent
+                const tempBtn = document.createElement('button');
+
+                await callStudent(studentData, tempBtn);
+
+                // Feedback visual extra
+                // Como callStudent já exibe toast, não precisamos duplicar muito, 
+                // mas podemos limpar a busca anterior para focar no chamado.
+                searchInput.value = '';
+                searchResultsContainer.innerHTML = '';
+
+            } catch (error) {
+                console.error("Erro no fluxo QR:", error);
+                showToast('Erro ao processar o código QR.', 'error');
+            }
+        };
+
+        const startScanner = () => {
+            qrModal.style.display = 'flex';
+
+            // Cria instância se não existir
+            if (!html5QrcodeScanner) {
+                html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            }
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            // Prioriza câmera traseira ("environment")
+            html5QrcodeScanner.start(
+                { facingMode: "environment" },
+                config,
+                handleQrCodeScanned,
+                (errorMessage) => {
+                    // Erros de varredura contínua são comuns (quando não acha QR), ignoramos log para não poluir
+                }
+            ).catch(err => {
+                console.error("Erro ao iniciar câmera:", err);
+                showToast('Não foi possível acessar a câmera.', 'error');
+                qrModal.style.display = 'none';
+            });
+        };
+
+        // --- FIM LÓGICA QR CODE ---
 
         const displayResults = (students) => {
             searchResultsContainer.innerHTML = '';
@@ -235,8 +340,12 @@
         };
 
         const callStudent = async (studentData, buttonElement) => {
-            const originalText = "Chamar";
-            setLoading(buttonElement, true, "Chamando...");
+            const originalText = buttonElement.textContent || "Chamar";
+
+            // Só altera visual se for um botão visível
+            if (buttonElement.style) {
+                setLoading(buttonElement, true, "Chamando...");
+            }
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
@@ -251,45 +360,48 @@
                 });
 
                 if (response.ok) {
-                    buttonElement.innerHTML = "✓ Chamado!";
-                    buttonElement.style.backgroundColor = '#28a745'; // Verde sucesso
+                    if (buttonElement.style) {
+                        buttonElement.innerHTML = "✓ Chamado!";
+                        buttonElement.style.backgroundColor = '#28a745';
+                    }
                     showToast(`Aluno ${studentData.nomeCompleto} chamado com sucesso!`, 'success');
 
-                    // Reseta o botão após 2 segundos
-                    setTimeout(() => {
-                        buttonElement.disabled = false;
-                        buttonElement.textContent = originalText;
-                        buttonElement.style.backgroundColor = ''; // Volta ao padrão (CSS)
-                    }, 2000);
+                    if (buttonElement.style) {
+                        setTimeout(() => {
+                            buttonElement.disabled = false;
+                            buttonElement.textContent = "Chamar"; // Reseta texto padrão
+                            buttonElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
                 } else {
                     throw new Error("Falha no servidor");
                 }
             } catch (error) {
                 console.error('Erro ao chamar aluno:', error);
-                buttonElement.textContent = "Erro!";
-                buttonElement.style.backgroundColor = '#dc3545';
-                showToast('Não foi possível chamar o aluno. Tente novamente.', 'error');
+                if (buttonElement.style) {
+                    buttonElement.textContent = "Erro!";
+                    buttonElement.style.backgroundColor = '#dc3545';
+                }
+                showToast('Não foi possível chamar o aluno.', 'error');
 
-                setTimeout(() => {
-                    buttonElement.disabled = false;
-                    buttonElement.textContent = originalText;
-                    buttonElement.style.backgroundColor = '';
-                }, 3000);
+                if (buttonElement.style) {
+                    setTimeout(() => {
+                        buttonElement.disabled = false;
+                        buttonElement.textContent = "Chamar";
+                        buttonElement.style.backgroundColor = '';
+                    }, 3000);
+                }
             }
         };
 
         const executeClearAll = async () => {
             setLoading(modalConfirmBtn, true, "Limpando...");
-
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
             try {
                 const response = await fetch('/api/limpar-paineis', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    }
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
                 });
 
                 if (response.ok) {
@@ -302,7 +414,7 @@
                 showToast('Ocorreu um erro ao tentar limpar os painéis.', 'error');
             } finally {
                 setLoading(modalConfirmBtn, false, "Confirmar Limpeza");
-                confirmationModal.style.display = 'none'; // Fecha o modal
+                confirmationModal.style.display = 'none';
             }
         };
 
@@ -330,15 +442,18 @@
         });
 
         modalConfirmBtn.addEventListener('click', () => {
-            // A função executeClearAll agora gerencia o fechamento do modal após sucesso/erro
             executeClearAll();
         });
 
         window.addEventListener('click', (event) => {
-            if (event.target === confirmationModal) {
-                confirmationModal.style.display = 'none';
-            }
+            if (event.target === confirmationModal) confirmationModal.style.display = 'none';
+            if (event.target === qrModal) stopScanner();
         });
+
+        // Eventos QR Code
+        qrBtn.addEventListener('click', startScanner);
+        closeQrBtn.addEventListener('click', stopScanner);
+
     </script>
 </body>
 
