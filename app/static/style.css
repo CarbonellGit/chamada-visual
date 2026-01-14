@@ -630,3 +630,49 @@ body.panel-page #student-grid {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
+
+/* --- ESTILOS DO MODAL DE QR CODE --- */
+
+/* Ajuste específico para o conteúdo do modal de QR para acomodar o vídeo */
+.modal-qr-content {
+    width: 100%;
+    max-width: 500px; /* Largura ideal para leitura confortável */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.instruction-text {
+    font-size: 0.95em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+/* Container onde a biblioteca injetará o vídeo */
+.qr-reader-container {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #000; /* Fundo preto enquanto carrega */
+    min-height: 300px; /* Altura mínima para evitar colapso */
+    border: 4px solid var(--carbonell-azul-marinho);
+}
+
+/* Personalização de elementos internos da biblioteca html5-qrcode (quando carregada) */
+#qr-reader video {
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+/* Destaque para o botão de QR na barra de busca */
+#qr-btn {
+    font-size: 1.5em;
+    padding: 0 15px;
+    background-color: var(--carbonell-azul-escuro);
+    color: var(--carbonell-branco);
+}
+
+#qr-btn:hover {
+    background-color: var(--carbonell-azul-marinho);
+}

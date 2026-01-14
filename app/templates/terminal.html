@@ -112,8 +112,13 @@
             <form class="search-bar" id="search-form">
                 <input type="text" id="search-input" placeholder="Digite o nome do aluno para buscar..."
                     autocomplete="off">
+
                 <button type="button" class="btn" id="clear-search-btn" aria-label="Limpar campo de busca">🗑️</button>
                 <button type="submit" class="btn" id="search-btn">Buscar</button>
+
+                <button type="button" class="btn" id="qr-btn" aria-label="Ler QR Code com Câmera"
+                    title="Escanear QR Code">📷</button>
+
                 <button type="button" class="btn" id="mic-btn" aria-label="Iniciar busca por voz">🎤</button>
             </form>
             <div id="search-results"></div>
@@ -132,10 +137,21 @@
         </div>
     </div>
 
+    <div id="qr-modal" class="modal-overlay">
+        <div class="modal-content modal-qr-content">
+            <h2>Escanear Carteirinha</h2>
+            <p class="instruction-text">Aponte o código QR do aluno para a câmera.</p>
+
+            <div id="qr-reader" class="qr-reader-container"></div>
+
+            <div class="modal-actions">
+                <button id="close-qr-btn" class="btn btn-danger">Fechar Câmera</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
         // Importações
-        // Nenhuma lógica de banco de dados no frontend necessária aqui, apenas chamadas de API
-
         const searchForm = document.getElementById('search-form');
         const searchInput = document.getElementById('search-input');
         const micBtn = document.getElementById('mic-btn');
@@ -148,6 +164,11 @@
         const modalConfirmBtn = document.getElementById('modal-confirm-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
         const toastContainer = document.getElementById('toast-container');
+
+        // Referências para o QR Code (serão usadas na próxima etapa)
+        const qrBtn = document.getElementById('qr-btn');
+        const qrModal = document.getElementById('qr-modal');
+        const closeQrBtn = document.getElementById('close-qr-btn');
 
         // --- SISTEMA DE TOAST (UX) ---
         const showToast = (message, type = 'info') => {
@@ -330,15 +351,29 @@
         });
 
         modalConfirmBtn.addEventListener('click', () => {
-            // A função executeClearAll agora gerencia o fechamento do modal após sucesso/erro
             executeClearAll();
         });
 
+        // Fechar modais ao clicar fora
         window.addEventListener('click', (event) => {
             if (event.target === confirmationModal) {
                 confirmationModal.style.display = 'none';
             }
+            if (event.target === qrModal) {
+                qrModal.style.display = 'none';
+                // TODO: Parar câmera se estiver aberta (implementar na próxima etapa)
+            }
         });
+
+        // Listeners básicos para o modal QR (Lógica real na próxima etapa)
+        qrBtn.addEventListener('click', () => {
+            qrModal.style.display = 'flex';
+        });
+
+        closeQrBtn.addEventListener('click', () => {
+            qrModal.style.display = 'none';
+        });
+
     </script>
 </body>
 
