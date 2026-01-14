@@ -1,22 +1,12 @@
 import logging
+from datetime import datetime, time
 from firebase_admin import firestore
 from flask import current_app
 
-# Configura o logger específico para este módulo
 logger = logging.getLogger(__name__)
 
 def get_db():
-    """
-    Recupera a instância do cliente Firestore ativa.
-    
-    Tenta obter o cliente do contexto global da aplicação Flask (`current_app.db`).
-    Se não estiver em um contexto de app (ex: script isolado), cria uma nova instância.
-
-    Returns:
-        google.cloud.firestore.Client | None: Cliente do Firestore ou None em caso de erro.
-    """
     try:
-        # Se estivermos dentro de um contexto de requisição Flask
         if current_app:
             return getattr(current_app, 'db', firestore.client())
         return firestore.client()
@@ -24,55 +14,95 @@ def get_db():
         logger.error(f"Erro ao obter cliente Firestore: {e}")
         return None
 
-def call_student(student_data):
-    """
-    Registra a solicitação de chamada de um aluno na coleção apropriada do Firestore.
-
-    A função determina a coleção de destino com base na turma do aluno:
-    - Turmas iniciando com 'EI' -> `chamados_ei` (Educação Infantil)
-    - Turmas contendo 'AI' ou 'AF' -> `chamados_fund` (Ensino Fundamental)
-    - Outros -> `chamados` (Padrão)
-
-    Args:
-        student_data (dict): Dicionário contendo os dados do aluno (nome, turma, foto, etc).
-
-    Returns:
-        bool: True se o registro foi salvo com sucesso, False caso contrário.
-    """
-    db = get_db()
-    if not db:
-        logger.error("Tentativa de chamar aluno falhou: Firestore não inicializado.")
-        return False
-
-    turma = student_data.get("turma", "").strip().upper()
-    
-    collection_name = "chamados"
-    if turma.startswith('EI'):
-        collection_name = "chamados_ei"
+def _get_collection_name(turma):
+    if not turma: return "chamados"
+    turma = turma.strip().upper()
+    if turma.startswith('EI') or turma.startswith('G'):
+        return "chamados_ei"
     elif 'AI' in turma or 'AF' in turma:
-        collection_name = "chamados_fund"
+        return "chamados_fund"
+    return "chamados"
+
+def call_student(student_data):
+    db = get_db()
+    if not db: return False
+
+    turma = student_data.get("turma", "")
+    collection_name = _get_collection_name(turma)
 
     try:
+        # GARANTIA DE TIPAGEM: Força ID como string para evitar divergência no banco
+        if 'id' in student_data:
+            student_data['id'] = str(student_data['id'])
+
+        # Dados de controle temporal
         student_data['timestamp'] = firestore.SERVER_TIMESTAMP
+        student_data['data_chamada'] = datetime.now().strftime("%Y-%m-%d")
+        
         db.collection(collection_name).add(student_data)
-        logger.info(f"Aluno {student_data.get('nomeCompleto')} adicionado com sucesso em {collection_name}")
+        logger.info(f"GRAVAÇÃO SUCESSO: Aluno {student_data.get('id')} - {student_data.get('nomeCompleto')} em '{collection_name}'")
         return True
     except Exception as e:
-        logger.error(f"Erro ao salvar no Firestore: {e}")
+        logger.error(f"ERRO GRAVAÇÃO: {e}")
         return False
 
-def clear_all_panels():
+def get_student_call_count(student_id, turma):
     """
-    Limpa todos os registros de chamados ativos em todas as coleções do sistema.
+    Conta chamadas de hoje com logs de diagnóstico.
+    """
+    db = get_db()
+    if not db: return 0
 
-    Itera sobre as coleções `chamados`, `chamados_ei` e `chamados_fund`,
-    deletando documento por documento.
+    collection_name = _get_collection_name(turma)
+    today_str = datetime.now().strftime("%Y-%m-%d")
     
-    Atenção: Esta é uma operação destrutiva e irreversível.
+    # GARANTIA DE TIPAGEM: Busca sempre como string
+    target_id = str(student_id)
 
-    Returns:
-        bool: True se a limpeza foi completa, False se houver erro.
-    """
+    try:
+        # Busca documentos onde o campo 'id' é igual ao target_id
+        docs = db.collection(collection_name).where("id", "==", target_id).stream()
+        
+        count = 0
+        total_found = 0
+        
+        for doc in docs:
+            data = doc.to_dict()
+            total_found += 1
+            
+            # Verifica data (String ou Timestamp)
+            doc_date = data.get('data_chamada')
+            is_today = False
+            
+            if doc_date == today_str:
+                is_today = True
+            elif not doc_date:
+                # Fallback para registros antigos sem data_chamada
+                ts = data.get('timestamp')
+                if ts:
+                    try:
+                        # Verifica se o timestamp é de hoje (ignorando hora)
+                        ts_val = ts.date() if hasattr(ts, 'date') else ts.today().date()
+                        if ts_val == datetime.now().date():
+                            is_today = True
+                    except:
+                        pass
+            
+            if is_today:
+                count += 1
+        
+        # LOG DE DIAGNÓSTICO (Aparecerá no seu terminal)
+        # Se total_found > 0 mas count == 0, o problema é a data.
+        # Se total_found == 0, o problema é o ID ou a Coleção.
+        if total_found > 0 or count > 0:
+            logger.info(f"CONTAGEM ID {target_id} em '{collection_name}': Encontrados={total_found}, Hoje={count}")
+            
+        return count
+    except Exception as e:
+        logger.error(f"Erro ao contar chamadas para {student_id}: {e}")
+        return 0
+
+def clear_all_panels():
     db = get_db()
     if not db: return False
 

@@ -1,4 +1,5 @@
 import logging
+import concurrent.futures
 from flask import Blueprint, request, jsonify, session
 from app.services import sophia, firestore
 from functools import wraps
@@ -16,19 +17,19 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def enrich_with_call_count(aluno):
+    """Injeta contagem atual no objeto aluno."""
+    try:
+        count = firestore.get_student_call_count(aluno['id'], aluno['turma'])
+        aluno['chamados_hoje'] = count
+    except Exception as e:
+        logger.error(f"Erro ao contar chamadas: {e}")
+        aluno['chamados_hoje'] = 0
+    return aluno
+
 @bp.route('/buscar-aluno', methods=['GET'])
 @login_required
 def buscar_aluno():
-    """
-    Endpoint para buscar alunos na base do Sophia.
-    
-    Query Params:
-        parteNome (str): Parte do nome para busca. Mínimo 2 caracteres.
-        grupo (str): Filtro de grupo ('todos' por padrão).
-
-    Returns:
-        JSON: Lista de alunos encontrados ou lista vazia.
-    """
     parte_nome = request.args.get('parteNome', '').strip()
     grupo = request.args.get('grupo', 'todos').upper()
     
@@ -37,64 +38,61 @@ def buscar_aluno():
 
     try:
         alunos = sophia.search_students(parte_nome, grupo)
+        
+        # Enriquece com contagem em paralelo
+        if alunos:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                list(executor.map(enrich_with_call_count, alunos))
+
         return jsonify(alunos)
     except Exception as e:
-        logger.error(f"Exceção não tratada na busca: {e}")
+        logger.error(f"Exceção na busca: {e}")
         return jsonify({"erro": "Erro interno ao buscar alunos"}), 500
 
 @bp.route('/buscar-por-id', methods=['GET'])
 @login_required
 def buscar_por_id():
-    """
-    Endpoint para buscar dados detalhados de um aluno específico pelo seu código (ID).
-    
-    Utilizado pela funcionalidade de leitura de QR Code.
-    
-    Query Params:
-        codigo (str): O código do aluno a ser buscado.
-
-    Returns:
-        JSON: Objeto com dados do aluno se encontrado, ou erro 404/400.
-    """
     student_code = request.args.get('codigo', '').strip()
     
     if not student_code:
-        return jsonify({"erro": "Código do aluno não fornecido."}), 400
+        return jsonify({"erro": "Código não fornecido"}), 400
 
     try:
-        # Chama o serviço recém-criado
         aluno = sophia.get_student_by_code(student_code)
         
         if aluno:
+            enrich_with_call_count(aluno)
             return jsonify(aluno)
         else:
-            # Retorna 404 para que o frontend saiba que o QR é inválido ou aluno não elegível
-            return jsonify({"erro": "Aluno não encontrado ou não elegível para chamada."}), 404
+            return jsonify({"erro": "Aluno não encontrado"}), 404
             
     except Exception as e:
-        logger.error(f"Erro interno na busca por ID: {e}")
-        return jsonify({"erro": "Erro interno ao processar QR Code."}), 500
+        logger.error(f"Erro busca ID: {e}")
+        return jsonify({"erro": "Erro interno"}), 500
 
 @bp.route('/chamar-aluno', methods=['POST'])
 @login_required
 def chamar_aluno():
-    """
-    Endpoint para registrar uma chamada de aluno.
-
-    Body (JSON):
-        Dados do aluno a ser chamado.
-
-    Returns:
-        JSON: {sucesso: bool} ou {erro: str}.
-    """
     data = request.get_json()
     if not data:
-        logger.warning("Tentativa de chamada com dados inválidos.")
         return jsonify({"erro": "Dados inválidos"}), 400
+    
+    # 1. Obtém a contagem ATUAL (antes de inserir o novo)
+    # Isso garante que pegamos o número consolidado no banco.
+    contagem_previa = 0
+    try:
+        contagem_previa = firestore.get_student_call_count(data.get('id'), data.get('turma'))
+    except Exception:
+        pass
         
+    # 2. Registra o novo chamado
     sucesso = firestore.call_student(data)
+    
     if sucesso:
-        return jsonify({"sucesso": True})
+        # 3. Retorna a contagem prévia + 1
+        # Matemática simples vence latência de banco de dados.
+        nova_contagem_real = contagem_previa + 1
+        return jsonify({"sucesso": True, "nova_contagem": nova_contagem_real})
     else:
         return jsonify({"erro": "Falha ao registrar chamada"}), 500
 
