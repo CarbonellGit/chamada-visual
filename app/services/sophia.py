@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 token_lock = threading.Lock()
 
 def normalize_text(text):
-    """Normaliza texto (remove acentos e lowercase)."""
     if not text: return ""
     text = str(text).lower()
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
@@ -28,7 +27,6 @@ def get_db():
         return None
 
 def get_sophia_token():
-    """Gerencia token Sophia com cache."""
     with token_lock:
         db = get_db()
         if not db: return None
@@ -67,7 +65,6 @@ def get_sophia_token():
             return None
 
 def fetch_photo(aluno_id, headers, base_url):
-    """Busca foto em background."""
     try:
         url = f"{base_url}/api/v1/alunos/{aluno_id}/Fotos/FotosReduzida"
         resp = requests.get(url, headers=headers, timeout=5)
@@ -78,25 +75,17 @@ def fetch_photo(aluno_id, headers, base_url):
         pass
     return aluno_id, None
 
-def select_official_class(turmas_raw, ignore_prefix='EM'):
+def select_official_class(turmas_raw, ignore_prefix='EM', debug_student_id=None):
     """
-    Seleciona a turma OFICIAL do aluno dentre a lista retornada pela API.
-    Objetivo: Replicar o visual de produção (ex: 'AI-2A-M-2036').
-
-    Lógica:
-    1. Ignora atividades extras (Futsal, Xadrez, etc).
-    2. Bloqueia se encontrar prefixo ignorado (EM).
-    3. Procura por turmas que contenham o Ano Vigente ou Próximo (ex: 2036, 2025),
-       pois as turmas oficiais geralmente têm esse formato completo.
+    Seleciona a melhor turma possível com Fallback.
     """
     if not turmas_raw:
+        if debug_student_id: print(f"ALUNO {debug_student_id}: Sem turmas (lista vazia ou None).")
         return None
 
-    # Lista de atividades para ignorar
     blacklist = ['FUTSAL', 'BASQUETE', 'VOLEI', 'XADREZ', 'JUDO', 'BALLET', 
-                 'TEATRO', 'ROBOTICA', 'DANCA', 'CORAL', 'TREINAMENTO', 'APROFUNDAMENTO', 'MODALIDADE']
+                 'TEATRO', 'ROBOTICA', 'DANCA', 'CORAL', 'TREINAMENTO', 'APROFUNDAMENTO', 'MODALIDADE', 'ALMOÇO', 'PERÍODO']
     
-    # Lista plana de todas as descrições (caso venha pipe | separa também)
     candidatos = []
     for t in turmas_raw:
         desc = t.get("descricao", "").strip()
@@ -105,39 +94,59 @@ def select_official_class(turmas_raw, ignore_prefix='EM'):
         else:
             candidatos.append(desc)
 
-    turma_escolhida = None
-    
-    # Regex para identificar ano (ex: 2025, 2036) na string
-    regex_ano = re.compile(r'20\d{2}') 
+    if debug_student_id:
+        print(f"ALUNO {debug_student_id} - Candidatos Brutos: {candidatos}")
 
+    turma_escolhida = None
+    regex_ano = re.compile(r'20\d{2}') 
+    candidatos_validos = []
+
+    # 1. FILTRAGEM INICIAL
     for turma in candidatos:
         turma_upper = turma.upper()
 
-        # 1. BLOQUEIO DE SEGURANÇA (EM)
-        # Se qualquer turma for do segmento ignorado, o aluno não deve aparecer.
+        # Bloqueio de EM
         if ignore_prefix:
             if turma_upper.startswith(ignore_prefix) or f"-{ignore_prefix}" in turma_upper or f" {ignore_prefix}" in turma_upper:
-                return None # Bloqueia o aluno imediatamente
+                if debug_student_id: print(f"ALUNO {debug_student_id}: Bloqueado por EM na turma '{turma}'")
+                return None 
 
-        # 2. IGNORAR EXTRAS
+        # Ignorar Extras
         if any(extra in turma_upper for extra in blacklist):
             continue
 
-        # 3. CRITÉRIO DE OURO: Ter o ano na string (Padrão 'AI-2A-M-2036')
-        # Se a turma tiver 4 dígitos de ano, é muito provável que seja a oficial.
+        candidatos_validos.append(turma)
+
+    if not candidatos_validos:
+        if debug_student_id: print(f"ALUNO {debug_student_id}: Todas as turmas foram filtradas (Blacklist).")
+        return None
+
+    # 2. SELEÇÃO HIERÁRQUICA
+    
+    # Ouro: Tem Ano (20xx)
+    for turma in candidatos_validos:
         if regex_ano.search(turma):
             turma_escolhida = turma
-            break # Achamos a perfeita, paramos.
+            if debug_student_id: print(f"ALUNO {debug_student_id}: Selecionada (OURO - Ano): {turma}")
+            break
 
-        # 4. CRITÉRIO DE PRATA: Começar com sigla acadêmica (EI, AI, AF)
-        # Caso a escola mude o padrão e tire o ano, isso garante que pegamos a acadêmica.
-        if not turma_escolhida and (turma_upper.startswith('EI') or turma_upper.startswith('AI') or turma_upper.startswith('AF')):
-            turma_escolhida = turma
+    # Prata: Tem Sigla Acadêmica
+    if not turma_escolhida:
+        for turma in candidatos_validos:
+            t_up = turma.upper()
+            if t_up.startswith('EI') or t_up.startswith('AI') or t_up.startswith('AF') or t_up.startswith('G'):
+                turma_escolhida = turma
+                if debug_student_id: print(f"ALUNO {debug_student_id}: Selecionada (PRATA - Sigla): {turma}")
+                break
+    
+    # Bronze (Fallback): Pega a primeira que sobrou
+    if not turma_escolhida:
+        turma_escolhida = candidatos_validos[0]
+        if debug_student_id: print(f"ALUNO {debug_student_id}: Selecionada (BRONZE - Fallback): {turma_escolhida}")
 
     return turma_escolhida
 
 def search_students(parte_nome, grupo_filtro):
-    """Busca textual."""
     token = get_sophia_token()
     if not token: return []
 
@@ -145,7 +154,6 @@ def search_students(parte_nome, grupo_filtro):
     headers = {'token': token, 'Accept': 'application/json'}
     params = {"Nome": parte_nome}
     
-    # Configs
     ano_vigente = datetime.now().year
     prefixo_ignorado = current_app.config.get('IGNORE_CLASS_PREFIX', 'EM').upper()
 
@@ -166,22 +174,14 @@ def search_students(parte_nome, grupo_filtro):
 
         turmas = aluno.get("turmas", [])
         
-        # --- Lógica de Seleção Restaurada ---
-        turma_oficial = select_official_class(turmas, prefixo_ignorado)
+        turma_oficial = select_official_class(turmas, prefixo_ignorado, debug_student_id=None)
         
-        if not turma_oficial: continue # Aluno EM ou só Futsal -> Ignora
+        if not turma_oficial: continue 
 
-        # Validação de Ano Vigente (apenas se tiver ano na string)
-        # O regex pega o ano da string ex: 2036. Se for menor que atual, ignora.
         match_ano = re.search(r'(20\d{2})', turma_oficial)
         if match_ano:
-            ano_turma = int(match_ano.group(1))
-            # Se for ano passado, ignora (ex: turma de 2023 em 2025)
-            # Nota: usamos < ano_vigente. Turmas futuras (2036) são aceitas (matrícula antecipada/progressão)
-            if ano_turma < ano_vigente: 
-                continue
+            if int(match_ano.group(1)) < ano_vigente: continue
 
-        # Filtro de Grupo Visual
         if grupo_filtro != 'TODOS' and grupo_filtro not in turma_oficial.upper(): continue
 
         nome_norm = normalize_text(aluno.get("nome"))
@@ -189,7 +189,7 @@ def search_students(parte_nome, grupo_filtro):
             alunos_filtrados[codigo] = {
                 "id": codigo,
                 "nomeCompleto": aluno.get("nome", "Nome Desconhecido"),
-                "turma": turma_oficial, # Exibe a string exata (ex: AI-2A-M-2036)
+                "turma": turma_oficial,
                 "fotoUrl": None
             }
 
@@ -204,39 +204,69 @@ def search_students(parte_nome, grupo_filtro):
     return list(alunos_filtrados.values())
 
 def get_student_by_code(student_code):
-    """Busca por ID (QR Code)."""
+    """Busca por ID (QR Code) - Versão V2: Busca por Lista"""
+    print(f"--- INICIANDO BUSCA POR ID (V2): {student_code} ---")
+    
     token = get_sophia_token()
-    if not token: return None
+    if not token: 
+        print("Erro: Sem token Sophia")
+        return None
 
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
     prefixo_ignorado = current_app.config.get('IGNORE_CLASS_PREFIX', 'EM').upper()
 
+    # ESTRATÉGIA NOVA: Usar o endpoint de Lista filtrando por Código
+    # Motivo: O endpoint /alunos/{id} não estava retornando as turmas.
     try:
-        url = f"{base_url}/api/v1/alunos/{student_code}"
-        resp = requests.get(url, headers=headers, timeout=10)
-        if resp.status_code != 200: return None
-        aluno_raw = resp.json()
-    except Exception:
+        url = f"{base_url}/api/v1/alunos"
+        params = {'Codigo': student_code} # Tentamos filtrar pelo código na lista
+        print(f"Consultando Lista: {url} | Params: {params}")
+        
+        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        
+        if resp.status_code != 200:
+            print(f"Erro API Sophia: Status {resp.status_code}")
+            return None
+            
+        lista_alunos = resp.json()
+    except Exception as e:
+        print(f"Exceção na requisição V2: {e}")
         return None
 
-    turmas = aluno_raw.get("turmas", [])
+    # Verifica se retornou algo e encontra o aluno certo na lista
+    aluno_encontrado = None
+    if isinstance(lista_alunos, list):
+        for a in lista_alunos:
+            # Garante que é o aluno certo (caso a API ignore o filtro e traga todos)
+            if str(a.get('codigo')) == str(student_code):
+                aluno_encontrado = a
+                break
     
-    # --- Usa a mesma lógica da busca textual ---
-    turma_oficial = select_official_class(turmas, prefixo_ignorado)
+    if not aluno_encontrado:
+        print(f"Erro: Aluno {student_code} não encontrado na lista retornada.")
+        return None
+
+    # Agora extraímos as turmas do objeto "rico"
+    turmas = aluno_encontrado.get("turmas", [])
+    
+    # Debug e Seleção
+    turma_oficial = select_official_class(turmas, prefixo_ignorado, debug_student_id=student_code)
 
     if not turma_oficial:
+        print(f"Erro: Aluno {student_code} bloqueado/sem turma válida (mesmo na V2).")
         return None
 
-    # Validação simples de ano apenas para garantir que não é antiga
+    # Validação de Ano
     ano_vigente = datetime.now().year
     match_ano = re.search(r'(20\d{2})', turma_oficial)
     if match_ano and int(match_ano.group(1)) < ano_vigente:
+        print(f"Erro: Turma antiga detectada ({turma_oficial}).")
         return None
 
     student_data = {
-        "id": str(aluno_raw.get("codigo")),
-        "nomeCompleto": aluno_raw.get("nome", "Nome Desconhecido"),
+        "id": str(aluno_encontrado.get("codigo")),
+        "nomeCompleto": aluno_encontrado.get("nome", "Nome Desconhecido"),
         "turma": turma_oficial,
         "fotoUrl": None
     }
@@ -248,4 +278,5 @@ def get_student_by_code(student_code):
     except Exception:
         pass
 
+    print(f"Sucesso! Retornando aluno: {student_data['nomeCompleto']} - {student_data['turma']}")
     return student_data
