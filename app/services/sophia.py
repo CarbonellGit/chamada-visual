@@ -269,3 +269,70 @@ def get_student_by_code(student_code):
 
     print(f"Sucesso! Retornando aluno: {student_data['nomeCompleto']} - {student_data['turma']}")
     return student_data
+
+def get_student_responsibles(student_id):
+    """
+    Busca a lista de responsáveis/autorizados de um aluno.
+    Retorna uma lista de dicionários com id, nome, vinculo e autorização.
+    """
+    token = get_sophia_token()
+    if not token: 
+        return []
+
+    base_url = current_app.config.get('SOPHIA_BASE_URL')
+    headers = {'token': token, 'Accept': 'application/json'}
+    
+    try:
+        # Endpoint identificado na análise do sistema de referência
+        url = f"{base_url}/api/v1/alunos/{student_id}/responsaveis"
+        resp = requests.get(url, headers=headers, timeout=10)
+        
+        if resp.status_code != 200:
+            logger.error(f"Erro ao buscar responsáveis do aluno {student_id}: {resp.status_code}")
+            return []
+            
+        raw_data = resp.json()
+        clean_list = []
+        
+        for item in raw_data:
+            # Extrai apenas o necessário
+            vinculo_desc = item.get('tipoVinculo', {}).get('descricao', 'Outros')
+            
+            clean_list.append({
+                "id": str(item.get("id")),
+                "nome": normalize_text(item.get("nome")),
+                "vinculo": vinculo_desc,
+                "autorizado": item.get("retiradaAutorizada", False)
+            })
+            
+        return clean_list
+
+    except Exception as e:
+        logger.error(f"Exceção ao buscar responsáveis: {e}")
+        return []
+
+def get_responsible_photo_base64(responsible_id):
+    """
+    Busca a foto reduzida de um responsável e retorna a string base64 pura.
+    Usado pela rota proxy.
+    """
+    token = get_sophia_token()
+    if not token: return None
+
+    base_url = current_app.config.get('SOPHIA_BASE_URL')
+    headers = {'token': token}
+    
+    try:
+        url = f"{base_url}/api/v1/responsaveis/{responsible_id}/fotos/FotoReduzida"
+        resp = requests.get(url, headers=headers, timeout=5)
+        
+        if resp.status_code == 200 and resp.text:
+            data = resp.json()
+            # O campo 'foto' vem no formato "data:image/jpeg;base64,..."
+            # Se vier completo, retornamos direto. Se vier só o b64, ajustamos no proxy.
+            return data.get('foto')
+            
+    except Exception as e:
+        logger.error(f"Erro foto responsável {responsible_id}: {e}")
+    
+    return None
