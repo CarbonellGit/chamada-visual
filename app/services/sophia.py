@@ -14,14 +14,9 @@ logger = logging.getLogger(__name__)
 token_lock = threading.Lock()
 
 def normalize_text(text):
-    """
-    Remove acentos e caracteres especiais.
-    Ex: 'VÔLEI' -> 'VOLEI'
-    """
     if not text: return ""
-    text = str(text)
-    normalized = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
-    return normalized.upper()
+    nfkd_form = unicodedata.normalize('NFKD', str(text).lower())
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
 def get_db():
     try:
@@ -80,83 +75,36 @@ def fetch_photo(aluno_id, headers, base_url):
         pass
     return aluno_id, None
 
-def select_official_class(turmas_raw, ignore_prefix='EM', debug_student_id=None):
-    """
-    Seleciona a turma OFICIAL.
-    CRITÉRIO RIGOROSO: Deve conter o Ano (20xx) na descrição (padrão Carbonell ex: AI-2A-T-2036).
-    Se não tiver ano, a turma é descartada.
-    """
-    if not turmas_raw:
-        if debug_student_id: print(f"ALUNO {debug_student_id}: Sem turmas.")
-        return None
-
-    # BLACKLIST
-    blacklist = [
-        'FUTSAL', 'BASQUETE', 'VOLEI', 'HANDEBOL', 'XADREZ', 'JUDO', 'KARATE', 'JIU', 
-        'BALLET', 'JAZZ', 'SAPATEADO', 'TEATRO', 'ROBOTICA', 'INFORMATICA', 'MAKER',
-        'DANCA', 'CORAL', 'MUSICA', 'VIOLAO', 'TECLADO',
-        'TREINAMENTO', 'APROFUNDAMENTO', 'MODALIDADE', 'SELECAO', 'MISTO', 
-        'ALMOCO', 'PERIODO', 'EXTRA', 'INTEGRAL', 'CURSO', 'CIRCULO', 'OPCIONAL'
-    ]
-    
+def select_official_class(turmas_raw, ignore_prefix='EM'):
+    if not turmas_raw: return None
+    blacklist = ['FUTSAL', 'BASQUETE', 'VOLEI', 'HANDEBOL', 'XADREZ', 'JUDO', 'KARATE', 'JIU', 'BALLET', 'JAZZ', 'SAPATEADO', 'TEATRO', 'ROBOTICA', 'INFORMATICA', 'MAKER', 'DANCA', 'CORAL', 'MUSICA', 'VIOLAO', 'TECLADO', 'TREINAMENTO', 'APROFUNDAMENTO', 'MODALIDADE', 'SELECAO', 'MISTO', 'ALMOCO', 'PERIODO', 'EXTRA', 'INTEGRAL', 'CURSO', 'CIRCULO', 'OPCIONAL']
     valid_prefixes = ('EI', 'AI', 'AF', 'G1', 'G2', 'G3', 'G4', 'G5', '1', '2', '3', '4', '5', '6', '7', '8', '9')
-
     candidatos = []
     for t in turmas_raw:
         desc = t.get("descricao", "").strip()
-        if "|" in desc:
-            candidatos.extend([x.strip() for x in desc.split("|") if x.strip()])
-        else:
-            candidatos.append(desc)
-
-    # Regex Obrigatório: Ano (20xx)
+        if "|" in desc: candidatos.extend([x.strip() for x in desc.split("|") if x.strip()])
+        else: candidatos.append(desc)
     regex_ano = re.compile(r'20\d{2}') 
-    
     melhor_turma = None
-    
     for turma in candidatos:
-        turma_norm = normalize_text(turma)
-
-        # 1. Filtro Blacklist
-        if any(extra in turma_norm for extra in blacklist):
-            continue
-
-        # 2. Filtro EM
+        turma_norm = normalize_text(turma).upper()
+        if any(extra in turma_norm for extra in blacklist): continue
         if ignore_prefix:
-            prefix_norm = normalize_text(ignore_prefix)
-            if turma_norm.startswith(prefix_norm) or f"-{prefix_norm}" in turma_norm or f" {prefix_norm}" in turma_norm:
-                return None 
-
-        # 3. CRITÉRIO OBRIGATÓRIO: Tem que ter Ano (20xx)
-        if not regex_ano.search(turma):
-            continue
-
-        # 4. Seleção da melhor opção
+            prefix_norm = normalize_text(ignore_prefix).upper()
+            if turma_norm.startswith(prefix_norm) or f"-{prefix_norm}" in turma_norm or f" {prefix_norm}" in turma_norm: return None 
+        if not regex_ano.search(turma): continue
         if melhor_turma:
-             if any(turma_norm.startswith(p) for p in valid_prefixes) and not any(normalize_text(melhor_turma).startswith(p) for p in valid_prefixes):
-                 melhor_turma = turma
-        else:
-            melhor_turma = turma
-
+             if any(turma_norm.startswith(p) for p in valid_prefixes) and not any(normalize_text(melhor_turma).upper().startswith(p) for p in valid_prefixes): melhor_turma = turma
+        else: melhor_turma = turma
     return melhor_turma
 
 def search_students(parte_nome, grupo_filtro):
     token = get_sophia_token()
     if not token: return []
-
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
-    
-    # --- NOVIDADE: FILTRO DE ANO LETIVO ---
-    # Força a API a trazer dados do ano corrente
     ano_atual = datetime.now().year
-    
-    params = {
-        "Nome": parte_nome,
-        "AnoLetivo": str(ano_atual),
-        "StatusMatricula": "Matriculado" # Tenta filtrar apenas ativos
-    }
-    
+    params = {"Nome": parte_nome, "AnoLetivo": str(ano_atual), "StatusMatricula": "Matriculado"}
     prefixo_ignorado = current_app.config.get('IGNORE_CLASS_PREFIX', 'EM').upper()
 
     try:
@@ -167,25 +115,24 @@ def search_students(parte_nome, grupo_filtro):
         logger.error(f"Erro Sophia: {e}")
         return []
 
-    termos_busca = normalize_text(parte_nome).split()
+    termos_busca = normalize_text(parte_nome).upper().split()
     alunos_filtrados = {}
 
     for aluno in raw_students:
         codigo = aluno.get("codigo")
+        internal_id = aluno.get("id") 
         if not codigo or codigo in alunos_filtrados: continue
-
         turmas = aluno.get("turmas", [])
-        
-        turma_oficial = select_official_class(turmas, prefixo_ignorado, debug_student_id=None)
-        
+        turma_oficial = select_official_class(turmas, prefixo_ignorado)
         if not turma_oficial: continue 
-
-        if grupo_filtro != 'TODOS' and grupo_filtro not in normalize_text(turma_oficial): continue
-
-        nome_norm = normalize_text(aluno.get("nome"))
+        if grupo_filtro != 'TODOS' and grupo_filtro not in normalize_text(turma_oficial).upper(): continue
+        
+        nome_norm = normalize_text(aluno.get("nome")).upper()
         if all(t in nome_norm for t in termos_busca):
+            final_id = str(internal_id) if internal_id else str(codigo)
             alunos_filtrados[codigo] = {
-                "id": codigo,
+                "id": final_id,
+                "matricula": codigo,
                 "nomeCompleto": aluno.get("nome", "Nome Desconhecido"),
                 "turma": turma_oficial,
                 "fotoUrl": None
@@ -196,43 +143,24 @@ def search_students(parte_nome, grupo_filtro):
             futures = {executor.submit(fetch_photo, aid, headers, base_url): aid for aid in alunos_filtrados}
             for future in concurrent.futures.as_completed(futures):
                 aid, foto = future.result()
-                if foto:
-                    alunos_filtrados[aid]['fotoUrl'] = foto
+                if foto: alunos_filtrados[aid]['fotoUrl'] = foto
 
     return list(alunos_filtrados.values())
 
 def get_student_by_code(student_code):
-    """Busca por ID (V2 - via Lista com Filtro de Ano)"""
-    print(f"--- INICIANDO BUSCA POR ID (V2): {student_code} ---")
-    
     token = get_sophia_token()
-    if not token: 
-        print("Erro: Sem token Sophia")
-        return None
-
+    if not token: return None
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
     prefixo_ignorado = current_app.config.get('IGNORE_CLASS_PREFIX', 'EM').upper()
-
-    # --- NOVIDADE: FILTRO DE ANO LETIVO ---
     ano_atual = datetime.now().year
-
     try:
         url = f"{base_url}/api/v1/alunos"
-        params = {
-            'Codigo': student_code,
-            'AnoLetivo': str(ano_atual) # Fundamental para não pegar histórico
-        }
-        print(f"Consultando Lista: {url} | Params: {params}")
+        params = {'Codigo': student_code, 'AnoLetivo': str(ano_atual)}
         resp = requests.get(url, headers=headers, params=params, timeout=10)
-        
-        if resp.status_code != 200:
-            print(f"Erro API Sophia: Status {resp.status_code}")
-            return None
+        if resp.status_code != 200: return None
         lista_alunos = resp.json()
-    except Exception as e:
-        print(f"Exceção na requisição V2: {e}")
-        return None
+    except Exception: return None
 
     aluno_encontrado = None
     if isinstance(lista_alunos, list):
@@ -240,81 +168,115 @@ def get_student_by_code(student_code):
             if str(a.get('codigo')) == str(student_code):
                 aluno_encontrado = a
                 break
-    
-    if not aluno_encontrado:
-        print(f"Erro: Aluno {student_code} não encontrado no Ano Letivo {ano_atual}.")
-        return None
-
+    if not aluno_encontrado: return None
     turmas = aluno_encontrado.get("turmas", [])
-    
-    turma_oficial = select_official_class(turmas, prefixo_ignorado, debug_student_id=student_code)
+    turma_oficial = select_official_class(turmas, prefixo_ignorado)
+    if not turma_oficial: return None
 
-    if not turma_oficial:
-        print(f"Erro: Aluno {student_code} bloqueado/sem turma padrão válida.")
-        return None
+    internal_id = aluno_encontrado.get("id")
+    final_id = str(internal_id) if internal_id else str(student_code)
 
     student_data = {
-        "id": str(aluno_encontrado.get("codigo")),
+        "id": final_id,
+        "matricula": str(aluno_encontrado.get("codigo")),
         "nomeCompleto": aluno_encontrado.get("nome", "Nome Desconhecido"),
         "turma": turma_oficial,
         "fotoUrl": None
     }
-
     try:
         _, foto_base64 = fetch_photo(student_data["id"], headers, base_url)
-        if foto_base64:
-            student_data["fotoUrl"] = foto_base64
-    except Exception:
-        pass
-
-    print(f"Sucesso! Retornando aluno: {student_data['nomeCompleto']} - {student_data['turma']}")
+        if foto_base64: student_data["fotoUrl"] = foto_base64
+    except Exception: pass
     return student_data
+
+# --- FUNÇÕES DE RESPONSÁVEIS (CORRIGIDAS) ---
 
 def get_student_responsibles(student_id):
     """
-    Busca a lista de responsáveis/autorizados de um aluno.
-    Retorna uma lista de dicionários com id, nome, vinculo e autorização.
+    Busca responsáveis filtrando o próprio aluno e recuperando o ID correto para a foto.
+    AGORA ACEITA 'CODIGO' COMO ID SE 'ID' ESTIVER AUSENTE.
     """
     token = get_sophia_token()
-    if not token: 
-        return []
+    if not token: return []
 
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token, 'Accept': 'application/json'}
     
+    # 1. Busca nome do aluno para filtro
+    nome_aluno_norm = ""
     try:
-        # Endpoint identificado na análise do sistema de referência
+        url_aluno = f"{base_url}/api/v1/Alunos/{student_id}"
+        resp_aluno = requests.get(url_aluno, headers=headers, timeout=5)
+        if resp_aluno.status_code == 200:
+            dados_aluno = resp_aluno.json()
+            nome_aluno_norm = normalize_text(dados_aluno.get('nome'))
+    except Exception: pass
+
+    # 2. Busca lista de responsáveis
+    try:
         url = f"{base_url}/api/v1/alunos/{student_id}/responsaveis"
         resp = requests.get(url, headers=headers, timeout=10)
-        
-        if resp.status_code != 200:
-            logger.error(f"Erro ao buscar responsáveis do aluno {student_id}: {resp.status_code}")
-            return []
+        if resp.status_code != 200: return []
             
         raw_data = resp.json()
         clean_list = []
         
         for item in raw_data:
-            # Extrai apenas o necessário
-            vinculo_desc = item.get('tipoVinculo', {}).get('descricao', 'Outros')
+            raw_name = item.get('nome')
+            pessoa_data = item.get('pessoa')
+            if pessoa_data and isinstance(pessoa_data, dict):
+                raw_name = pessoa_data.get('nome') or raw_name
+            
+            nome_resp_norm = normalize_text(raw_name)
+            
+            # Filtra o próprio aluno
+            if nome_aluno_norm and nome_aluno_norm == nome_resp_norm: continue
+
+            # LÓGICA DE RECUPERAÇÃO DE ID (CRUCIAL)
+            # Ordem de prioridade: item['id'] -> pessoa['id'] -> item['codigo']
+            resp_id = None
+            
+            # 1. Tenta ID direto
+            if item.get('id'):
+                resp_id = str(item.get('id'))
+            
+            # 2. Tenta ID da Pessoa (se o anterior for None)
+            if not resp_id and item.get('pessoa', {}).get('id'):
+                resp_id = str(item.get('pessoa').get('id'))
+                
+            # 3. Tenta CODIGO (conforme visto nos logs)
+            if not resp_id and item.get('codigo'):
+                resp_id = str(item.get('codigo'))
+                
+            # Se ainda for None, não temos como identificar
+            if not resp_id:
+                logger.warning(f"Responsável ignorado (sem ID/Código): {raw_name}")
+                continue
+
+            # Tratamento do Vínculo
+            vinculo_data = item.get('tipoVinculo')
+            if vinculo_data and isinstance(vinculo_data, dict):
+                vinculo_desc = vinculo_data.get('descricao', 'Outros')
+            else:
+                vinculo_desc = 'Outros'
             
             clean_list.append({
-                "id": str(item.get("id")),
-                "nome": normalize_text(item.get("nome")),
-                "vinculo": vinculo_desc,
-                "autorizado": item.get("retiradaAutorizada", False)
+                "id": resp_id,
+                "nome": raw_name, 
+                "vinculo": vinculo_desc
             })
             
         return clean_list
 
     except Exception as e:
-        logger.error(f"Exceção ao buscar responsáveis: {e}")
+        logger.error(f"Exceção responsaveis: {e}")
         return []
 
 def get_responsible_photo_base64(responsible_id):
     """
-    Busca a foto reduzida de um responsável e retorna a string base64 pura.
-    Usado pela rota proxy.
+    Busca foto com Estratégia Dupla:
+    1. Tenta endpoint de /responsaveis
+    2. Se falhar, tenta endpoint de /pessoas
     """
     token = get_sophia_token()
     if not token: return None
@@ -322,17 +284,22 @@ def get_responsible_photo_base64(responsible_id):
     base_url = current_app.config.get('SOPHIA_BASE_URL')
     headers = {'token': token}
     
+    # TENTATIVA 1: Endpoint de Vínculo/Responsável
     try:
         url = f"{base_url}/api/v1/responsaveis/{responsible_id}/fotos/FotoReduzida"
-        resp = requests.get(url, headers=headers, timeout=5)
-        
-        if resp.status_code == 200 and resp.text:
+        resp = requests.get(url, headers=headers, timeout=4)
+        if resp.status_code == 200:
             data = resp.json()
-            # O campo 'foto' vem no formato "data:image/jpeg;base64,..."
-            # Se vier completo, retornamos direto. Se vier só o b64, ajustamos no proxy.
-            return data.get('foto')
-            
-    except Exception as e:
-        logger.error(f"Erro foto responsável {responsible_id}: {e}")
+            if data and 'foto' in data: return data.get('foto')
+    except Exception: pass
+
+    # TENTATIVA 2: Endpoint de Pessoa (Fallback)
+    try:
+        url_pessoa = f"{base_url}/api/v1/pessoas/{responsible_id}/fotos/FotoReduzida"
+        resp = requests.get(url_pessoa, headers=headers, timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data and 'foto' in data: return data.get('foto')
+    except Exception: pass
     
     return None

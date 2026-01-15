@@ -828,6 +828,7 @@ input:checked+.slider:before {
 }
 
 /* Card do Responsável */
+/* Card do Responsável (Neutro) */
 .responsible-card {
     background: white;
     border-radius: 12px;
@@ -840,6 +841,8 @@ input:checked+.slider:before {
     transition: transform 0.2s, box-shadow 0.2s;
     position: relative;
     border: 1px solid #e0e0e0;
+    /* Borda inferior azul padrão Carbonell para acabamento sutil */
+    border-bottom: 4px solid var(--carbonell-azul-escuro);
 }
 
 .responsible-card:hover {
