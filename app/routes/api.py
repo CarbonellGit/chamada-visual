@@ -1,6 +1,7 @@
 import logging
 import concurrent.futures
-from flask import Blueprint, request, jsonify, session
+import base64
+from flask import Blueprint, request, jsonify, session, Response
 from app.services import sophia, firestore
 from functools import wraps
 
@@ -104,3 +105,54 @@ def limpar_paineis():
         return jsonify({"sucesso": True})
     else:
         return jsonify({"erro": "Falha ao limpar painéis"}), 500
+
+# --- NOVAS ROTAS PARA RESPONSÁVEIS ---
+
+@bp.route('/aluno/<student_id>/responsaveis', methods=['GET'])
+@login_required
+def listar_responsaveis(student_id):
+    if not student_id:
+        return jsonify({"erro": "ID do aluno necessário"}), 400
+
+    try:
+        # Não precisamos mais passar o nome, o backend resolve
+        responsaveis = sophia.get_student_responsibles(student_id)
+        return jsonify(responsaveis)
+    except Exception as e:
+        logger.error(f"Erro na rota de responsáveis: {e}")
+        return jsonify({"erro": "Erro interno ao buscar responsáveis"}), 500
+
+@bp.route('/responsavel/<resp_id>/foto', methods=['GET'])
+@login_required
+def foto_responsavel(resp_id):
+    """
+    Proxy para a foto do responsável.
+    """
+    try:
+        b64_string = sophia.get_responsible_photo_base64(resp_id)
+        
+        if not b64_string:
+            logger.warning(f"API Proxy: Foto não encontrada para ID {resp_id}")
+            return jsonify({"erro": "Foto não encontrada"}), 404
+
+        # Tratamento robusto do Base64
+        if ',' in b64_string:
+            header, encoded = b64_string.split(',', 1)
+            try:
+                mime_type = header.split(':')[1].split(';')[0]
+            except IndexError:
+                mime_type = 'image/jpeg'
+        else:
+            encoded = b64_string
+            mime_type = 'image/jpeg'
+
+        try:
+            img_data = base64.b64decode(encoded)
+            return Response(img_data, mimetype=mime_type)
+        except Exception as e:
+            logger.error(f"API Proxy: Erro decodificação base64 ({resp_id}): {e}")
+            return jsonify({"erro": "Imagem inválida"}), 500
+        
+    except Exception as e:
+        logger.error(f"API Proxy: Erro fatal ({resp_id}): {e}")
+        return jsonify({"erro": "Falha ao processar imagem"}), 500

@@ -774,3 +774,186 @@ input:checked+.slider:before {
         justify-content: center;
     }
 }
+
+/* --- MODAL DE RESPONSÁVEIS (PREMIUM UI - AJUSTADO) --- */
+
+/* Ajuste para modais maiores */
+.modal-lg {
+    max-width: 800px;
+    width: 95%;
+    padding: 0;
+    /* Remove padding padrão para o header encostar na borda */
+    overflow: hidden;
+    /* Garante que nada saia das bordas arredondadas */
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    border-radius: 16px;
+    /* Arredondamento mais pronunciado e moderno */
+    background-color: #f8f9fa;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+    /* Sombra mais elegante */
+}
+
+.modal-header {
+    background-color: var(--carbonell-azul-escuro);
+    color: var(--carbonell-branco);
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 4px solid var(--carbonell-amarelo);
+    /* Força o arredondamento no topo para casar com o container */
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.close-modal-btn {
+    background: none;
+    border: none;
+    color: var(--carbonell-branco);
+    font-size: 2.2rem;
+    cursor: pointer;
+    line-height: 1;
+    transition: transform 0.2s, color 0.2s;
+    opacity: 0.9;
+}
+
+.close-modal-btn:hover {
+    color: var(--carbonell-amarelo);
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+.responsibles-grid {
+    padding: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 25px;
+    overflow-y: auto;
+    background-color: #f4f6f9;
+}
+
+/* Card do Responsável (Neutro e Elegante) */
+.responsible-card {
+    background: white;
+    border-radius: 16px;
+    /* Cards também mais arredondados */
+    padding: 25px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+    position: relative;
+    border: 1px solid #edf2f7;
+    border-bottom: 4px solid var(--carbonell-azul-escuro);
+}
+
+.responsible-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(43, 58, 108, 0.15);
+    border-color: var(--carbonell-azul-escuro);
+}
+
+.resp-photo-container {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 15px;
+    position: relative;
+    border-radius: 50%;
+    padding: 3px;
+    background: linear-gradient(135deg, #e0e0e0, #ffffff);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.resp-photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid white;
+}
+
+.resp-name {
+    font-weight: 700;
+    color: var(--carbonell-azul-marinho);
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.resp-relation {
+    font-size: 0.85rem;
+    color: #555;
+    background-color: #e2e8f0;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Estado de Carregamento */
+.loading-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    font-weight: 500;
+}
+
+/* Modal Footer */
+.modal-footer {
+    padding: 15px 25px;
+    background-color: white;
+    border-top: 1px solid #eee;
+    text-align: right;
+}
+
+.info-text {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    margin-left: 10px;
+}
+
+.indicator.authorized {
+    background-color: #28a745;
+}
+
+.indicator.unauthorized {
+    background-color: #dc3545;
+}
+
+/* Estado de Carregamento */
+.loading-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
