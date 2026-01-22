@@ -23,6 +23,8 @@ def get_db():
 def delete_old_records():
     """
     Varre as coleções e deleta documentos mais antigos que MAX_AGE_MINUTES.
+    OTIMIZAÇÃO: Usa query do Firestore (.where) para baixar APENAS os documentos expirados.
+    Isso economiza custos de leitura (Read Ops).
     """
     db = get_db()
     if not db: return
@@ -37,32 +39,33 @@ def delete_old_records():
 
     for collection_name in collections:
         try:
-            # Recupera todos os documentos da coleção
-            # Nota: Para sistemas de alto volume, usaríamos query filter (.where).
-            # Para o volume escolar, stream() e filtro em memória é mais seguro contra erros de índice.
-            docs = db.collection(collection_name).stream()
+            # --- OTIMIZAÇÃO DE CUSTO AQUI ---
+            # Antes: db.collection(collection_name).stream() -> Baixava TUDO (Caro!)
+            # Agora: Filtramos no servidor do Google. Só baixamos o que vai ser deletado.
+            docs = db.collection(collection_name)\
+                     .where("timestamp", "<", cutoff_time)\
+                     .stream()
             
             batch = db.batch()
             batch_count = 0
             
             for doc in docs:
-                data = doc.to_dict()
-                timestamp = data.get('timestamp')
+                # Como a query já filtrou, tudo que vem aqui é para deletar
+                batch.delete(doc.reference)
+                batch_count += 1
+                total_deleted += 1
 
-                if not timestamp:
-                    continue
+                # Firestore tem limite de 500 operações por batch.
+                # Se acumular muito, comitamos e abrimos um novo.
+                if batch_count >= 400:
+                    batch.commit()
+                    batch = db.batch()
+                    batch_count = 0
 
-                # Normaliza o timestamp para comparação
-                # O Firestore retorna datetime com timezone
-                if timestamp < cutoff_time:
-                    batch.delete(doc.reference)
-                    batch_count += 1
-                    total_deleted += 1
-
-            # Executa o lote de deleção se houver algo para deletar
+            # Comita o restante
             if batch_count > 0:
                 batch.commit()
-                logger.info(f"LIMPEZA: {batch_count} chamados expirados removidos de '{collection_name}'.")
+                logger.info(f"LIMPEZA: {batch_count + (total_deleted - batch_count)} chamados expirados removidos de '{collection_name}'.")
 
         except Exception as e:
             logger.error(f"Erro ao limpar coleção '{collection_name}': {e}")
