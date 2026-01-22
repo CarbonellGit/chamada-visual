@@ -864,28 +864,37 @@ input:checked+.slider:before {
     border-color: var(--carbonell-azul-escuro);
 }
 
+/* --- Ajuste de Fotos dos Responsáveis (Exibição Completa) --- */
+
 .resp-photo-container {
-    width: 140px;
-    /* Aumentado levemente para melhor visualização */
-    height: 140px;
-    /* Quadrado conforme solicitado */
+    width: 150px;
+    height: 150px;
     margin-bottom: 15px;
     position: relative;
     border-radius: 12px;
-    /* Borda levemente arredondada (Squircle) */
-    padding: 3px;
-    background: linear-gradient(135deg, #e0e0e0, #ffffff);
+    /* Mantém o formato Squircle externo */
+    padding: 5px;
+    /* Espaço branco entre a borda e a foto (moldura) */
+    background: #ffffff;
+    /* Fundo branco sólido para as "sobras" da foto */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    /* Garante centralização perfeita da imagem */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #e0e0e0;
+    /* Borda sutil externa */
 }
 
 .resp-photo {
+    /* Ocupa o máximo de espaço possível dentro do padding */
     width: 100%;
     height: 100%;
-    border-radius: 9px;
-    /* Raio interno levemente menor para casar com a borda */
-    object-fit: cover;
-    /* Preenche o quadrado mantendo a proporção (centralizado) */
-    border: 2px solid white;
+    /* A CORREÇÃO: 'contain' garante que a imagem inteira apareça, sem cortes */
+    object-fit: contain;
+    /* Removemos bordas e arredondamentos internos, pois o container já faz esse papel de moldura */
+    border-radius: 0;
+    border: none;
 }
 
 .resp-name {
