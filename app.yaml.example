@@ -2,6 +2,13 @@ runtime: python310
 instance_class: F1
 entrypoint: gunicorn -b :$PORT run:app
 
+# --- CONFIGURAÇÃO DE ECONOMIA MÁXIMA ---
+automatic_scaling:
+  min_instances: 0        # Permite desligar tudo se ninguém acessar (Custo Zero)
+  max_instances: 1        # Limita a 1 máquina para evitar surpresas na conta
+  min_idle_instances: 0   # Não deixa ninguém "de plantão" gastando à toa
+# ---------------------------------------
+
 # Variáveis de exemplo (Sem dados sensíveis)
 env_variables:
   FLASK_ENV: "production"
