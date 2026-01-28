@@ -42,6 +42,16 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
+    
+    # SOBRESCREVE a chave secreta para ser OBRIGATÓRIA em produção
+    @property
+    def SECRET_KEY(self):
+        # Tenta pegar do ambiente
+        key = os.environ.get('SECRET_KEY')
+        # Se não existir, PARA TUDO! Levanta erro fatal.
+        if not key:
+            raise ValueError("ERRO CRÍTICO: A variável de ambiente 'SECRET_KEY' não está configurada.")
+        return key
 
 # Dicionário para facilitar a seleção de configuração
 config_by_name = {
