@@ -154,11 +154,10 @@
 
     <script type="module">
         import { db } from '/static/firebase-config.js';
-        // NOTA: removemos 'deleteDoc' e 'doc' pois o frontend não deve deletar dados.
-        // Adicionamos 'limit' para restringir a quantidade de dados recebidos.
         import { collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-        // Configuração de exibição
+        // CONFIGURAÇÃO DE TEMPO (10 Minutos em Milissegundos)
+        const MAX_TIME_MS = 10 * 60 * 1000;
         const MAX_DISPLAY_COUNT = 10;
 
         // Referências DOM
@@ -171,59 +170,73 @@
         const collectionName = "{{ collection_name }}";
         const chamadosCollection = collection(db, collectionName);
 
-        /**
-         * startMonitoring
-         * - Inicia o listener do Firestore.
-         * - A query agora inclui 'limit(MAX_DISPLAY_COUNT)' para garantir que
-         * o cliente nunca baixe mais documentos do que o necessário.
-         * - A limpeza de dados antigos é feita pelo TTL do Firestore (Backend).
-         */
         function startMonitoring() {
             activationOverlay.style.display = 'none';
             const emptyStateHTML = `<div class="empty-state"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo Colégio Carbonell" class="logo-empty"><h2>Aguardando chamada...</h2></div>`;
             studentGrid.innerHTML = emptyStateHTML;
 
-            // Query otimizada: Ordena por timestamp e pega apenas os últimos 10.
+            // Mantemos o limit(10) para não sobrecarregar a rede, mas o filtro real é no JS
             const q = query(chamadosCollection, orderBy("timestamp", "desc"), limit(MAX_DISPLAY_COUNT));
 
             onSnapshot(q, (querySnapshot) => {
-                // Se a consulta retornar vazio, mostramos o estado inicial
                 if (querySnapshot.empty) {
                     studentGrid.innerHTML = emptyStateHTML;
                     return;
                 }
 
                 querySnapshot.docChanges().forEach((change) => {
+                    const student = change.doc.data();
+
                     if (change.type === "added") {
+                        // --- LÓGICA DE LIMPEZA VISUAL (CRÍTICO) ---
+                        // Se não tem timestamp (erro de gravação), ignoramos por segurança
+                        if (!student.timestamp) return;
+
+                        // Converte o Timestamp do Firestore para objeto Date do JS
+                        // O Firestore retorna um objeto com método .toDate()
+                        let callTime;
+                        try {
+                            callTime = student.timestamp.toDate();
+                        } catch (e) {
+                            // Fallback caso venha como string ou outro formato
+                            callTime = new Date(student.timestamp);
+                        }
+
+                        const now = new Date();
+                        const timeDiff = now - callTime;
+
+                        // REGRA 1: Se já passou de 10 minutos, NÃO MOSTRA (Ignora fantasma)
+                        if (timeDiff > MAX_TIME_MS) {
+                            return;
+                        }
+                        // -------------------------------------------
+
                         if (studentGrid.querySelector('.empty-state')) { studentGrid.innerHTML = ''; }
 
-                        const student = change.doc.data();
                         const studentCard = document.createElement('div');
                         studentCard.className = 'student-card';
                         studentCard.id = `card-${change.doc.id}`;
-
                         studentCard.innerHTML = `<img src="${student.fotoUrl}" alt="Foto de ${student.nomeCompleto}" class="student-photo-large"><div class="student-card-info"><span class="student-card-name">${student.nomeCompleto}</span><span class="student-card-class">${student.turma}</span></div>`;
 
-                        // Insere no DOM
-                        // Como a query já vem ordenada, o 'added' geralmente vem na ordem correta,
-                        // mas para garantir o visual de pilha (mais novo no topo), usamos insertBefore se a lista não estiver vazia.
-                        // Entretanto, com snapshot completo, precisamos cuidar da ordem.
-                        // O Firestore dispara 'added' para os docs existentes na carga inicial.
-
-                        // Lógica simplificada de inserção visual:
-                        // Vamos reinserir baseados no índice do snapshot para garantir ordem visual correta?
-                        // Não, para manter simplicidade e performance, o insertBefore funciona bem para "novos chamados" ao vivo.
-                        // Para carga inicial, eles virão ordenados.
-
-                        // Verificação simples para evitar duplicidade visual em edge-cases de re-render
                         if (!document.getElementById(`card-${change.doc.id}`)) {
-                            // Se é um update em tempo real (novo timestamp), ele deve ir para o topo
                             studentGrid.insertBefore(studentCard, studentGrid.firstChild);
+                            notificationSound.play().catch(e => console.warn("Som falhou", e));
 
-                            // Só toca som se não for a carga inicial massiva (metadata.hasPendingWrites é false para server data)
-                            // Uma heurística simples: tocar som em todos os 'added' pode ser barulhento na inicialização.
-                            // Mas mantendo o comportamento original:
-                            notificationSound.play().catch(e => console.warn("A reprodução do som falhou.", e));
+                            // REGRA 2: Agenda a "morte" do card para quando completar 10 minutos
+                            const timeRemaining = MAX_TIME_MS - timeDiff;
+
+                            setTimeout(() => {
+                                const card = document.getElementById(`card-${change.doc.id}`);
+                                if (card) {
+                                    card.classList.add('exiting');
+                                    card.addEventListener('animationend', () => {
+                                        card.remove();
+                                        if (studentGrid.children.length === 0) {
+                                            studentGrid.innerHTML = emptyStateHTML;
+                                        }
+                                    });
+                                }
+                            }, timeRemaining);
                         }
                     }
 
@@ -238,16 +251,6 @@
                         }
                     }
                 });
-
-                // Garantia visual extra: Se por algum motivo o DOM tiver mais que 10 elementos, removemos os últimos.
-                // Isso protege contra comportamentos anômalos do append.
-                while (studentGrid.children.length > MAX_DISPLAY_COUNT) {
-                    if (!studentGrid.lastElementChild.classList.contains('empty-state')) {
-                        studentGrid.lastElementChild.remove();
-                    } else {
-                        break;
-                    }
-                }
             });
         }
 
@@ -263,10 +266,9 @@
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock ativado.');
                     wakeLock.addEventListener('release', () => { console.log('Wake Lock liberado.'); });
                 } catch (err) { console.error(`${err.name}, ${err.message}`); }
-            } else { console.warn('API Wake Lock não suportada.'); }
+            }
         };
 
         activateBtn.addEventListener('click', () => {
@@ -280,9 +282,6 @@
                 await requestWakeLock();
             }
         });
-
-        // NOTA: O setInterval que deletava alunos antigos foi removido.
-        // O Firestore TTL cuidará disso no servidor.
     </script>
 </body>
 
